@@ -1,5 +1,7 @@
 # 表格54: Windows容器支持
 
+> **适用版本**: v1.25 - v1.32 | **最后更新**: 2026-01 | **参考**: [kubernetes.io/docs/concepts/windows](https://kubernetes.io/docs/concepts/windows/)
+
 ## Windows节点要求
 
 | 要求 | 最低版本 | 说明 |

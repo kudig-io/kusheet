@@ -161,3 +161,27 @@ hack/local-up-cluster.sh
 ---
 
 **代码导航提示**: 使用IDE的"跳转到定义"功能在staging和pkg之间导航，理解内部/外部API类型的映射关系。
+
+## 本地开发配置示例
+
+```yaml
+# 本地开发环境kubeconfig配置
+apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    server: https://127.0.0.1:6443
+    certificate-authority: /var/run/kubernetes/apiserver.crt
+  name: local-dev
+contexts:
+- context:
+    cluster: local-dev
+    user: local-admin
+  name: local-dev
+current-context: local-dev
+users:
+- name: local-admin
+  user:
+    client-certificate: /var/run/kubernetes/client-admin.crt
+    client-key: /var/run/kubernetes/client-admin.key
+```

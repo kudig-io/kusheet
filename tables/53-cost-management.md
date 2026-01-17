@@ -1,5 +1,7 @@
 # 表格53: 成本管理与FinOps
 
+> **适用版本**: v1.25 - v1.32 | **最后更新**: 2026-01 | **参考**: [kubernetes.io/docs/concepts/cluster-administration/manage-deployment](https://kubernetes.io/docs/concepts/cluster-administration/manage-deployment/)
+
 ## Kubernetes成本构成
 
 | 成本类型 | 组成部分 | 优化方向 |

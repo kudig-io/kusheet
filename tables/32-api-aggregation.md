@@ -1,5 +1,7 @@
 # 表格32: API聚合层配置
 
+> **适用版本**: v1.25 - v1.32 | **最后更新**: 2026-01 | **参考**: [kubernetes.io/docs/concepts/extend-kubernetes/api-extension/apiserver-aggregation](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/apiserver-aggregation/)
+
 ## API聚合架构
 
 | 组件 | 功能 | 说明 |

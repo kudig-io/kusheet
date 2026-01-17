@@ -1,5 +1,7 @@
 # 表格82: DNS优化与调优
 
+> **适用版本**: v1.25 - v1.32 | **最后更新**: 2026-01 | **参考**: [kubernetes.io/docs/tasks/administer-cluster/dns-custom-nameservers](https://kubernetes.io/docs/tasks/administer-cluster/dns-custom-nameservers/)
+
 ## CoreDNS性能参数
 
 | 参数 | 默认值 | 推荐值 | 说明 |

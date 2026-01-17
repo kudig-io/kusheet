@@ -1,5 +1,7 @@
 # 表格81: 网络故障诊断
 
+> **适用版本**: v1.25 - v1.32 | **最后更新**: 2026-01 | **参考**: [kubernetes.io/docs/tasks/debug/debug-application/debug-service](https://kubernetes.io/docs/tasks/debug/debug-application/debug-service/)
+
 ## 网络问题分类
 
 | 类型 | 症状 | 常见原因 |

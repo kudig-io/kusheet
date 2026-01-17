@@ -1,5 +1,7 @@
 # 表格73: 事件与审计日志
 
+> **适用版本**: v1.25 - v1.32 | **最后更新**: 2026-01 | **参考**: [kubernetes.io/docs/tasks/debug/debug-cluster/audit](https://kubernetes.io/docs/tasks/debug/debug-cluster/audit/)
+
 ## Kubernetes事件(Events)
 
 | 字段 | 说明 |

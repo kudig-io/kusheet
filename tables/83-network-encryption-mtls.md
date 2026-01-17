@@ -1,5 +1,7 @@
 # 表格83: 网络加密与mTLS
 
+> **适用版本**: v1.25 - v1.32 | **最后更新**: 2026-01 | **参考**: [kubernetes.io/docs/concepts/security](https://kubernetes.io/docs/concepts/security/)
+
 ## 网络加密方案
 
 | 方案 | 层级 | 性能影响 | 管理复杂度 | 适用场景 |

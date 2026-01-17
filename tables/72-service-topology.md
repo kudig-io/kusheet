@@ -1,5 +1,7 @@
 # 表格72: 服务拓扑与端点切片
 
+> **适用版本**: v1.25 - v1.32 | **最后更新**: 2026-01 | **参考**: [kubernetes.io/docs/concepts/services-networking/endpoint-slices](https://kubernetes.io/docs/concepts/services-networking/endpoint-slices/)
+
 ## EndpointSlice vs Endpoints
 
 | 特性 | Endpoints | EndpointSlice |

@@ -1,5 +1,7 @@
 # 表格49: 服务网格进阶配置
 
+> **适用版本**: v1.25 - v1.32 | **最后更新**: 2026-01 | **参考**: [istio.io/docs](https://istio.io/latest/docs/)
+
 ## Istio流量管理CRD
 
 | CRD | 用途 | 版本 |

@@ -1,75 +1,399 @@
-# 表格1：Kubernetes架构表
+# Kubernetes 架构参考
 
 > **适用版本**: v1.25 - v1.32 | **最后更新**: 2026-01 | **参考**: [kubernetes.io/docs/concepts/architecture](https://kubernetes.io/docs/concepts/architecture/)
 
 ## 架构总览
 
-| 组件名称 | 描述 | 关键依赖 | 引入版本 | 重要变更版本 | 生产运维注意事项 |
-|---------|------|---------|---------|-------------|-----------------|
-| **Control Plane (控制平面)** | 集群的大脑，负责全局决策（调度、检测响应事件）| etcd, 网络连通性 | v1.0 | v1.20+ HA增强 | 至少3节点部署实现HA；ACK Pro版自动托管控制平面 |
-| **kube-apiserver** | 集群API入口，所有组件通信中心 | etcd, 证书 | v1.0 | v1.29+ 审计增强 | 启用审计日志；配置适当的请求限流(--max-requests-inflight) |
-| **etcd** | 分布式KV存储，保存所有集群状态 | 磁盘IO, 网络 | v1.0 | v1.6+ v3 API默认 | 独立SSD磁盘；定期快照备份；监控磁盘延迟<10ms |
-| **kube-scheduler** | Pod调度决策，选择最优节点 | apiserver | v1.0 | v1.25+ 调度框架 | 配置调度策略；监控调度延迟和失败率 |
-| **kube-controller-manager** | 运行控制器循环（Node、Replication等）| apiserver | v1.0 | v1.27+ 控制器分离 | 调整--concurrent-*参数优化大集群性能 |
-| **cloud-controller-manager** | 云厂商特定控制器（LoadBalancer、Node等）| apiserver, 云API | v1.6 | v1.25+ 稳定 | ACK自动集成；监控云API调用限流 |
-| **Worker Node (工作节点)** | 运行实际工作负载的节点 | kubelet, 容器运行时 | v1.0 | - | 根据负载类型选择节点规格；标签分组管理 |
-| **kubelet** | 节点代理，管理Pod生命周期 | 容器运行时, apiserver | v1.0 | v1.24+ cgroup v2 | 配置适当的--max-pods；监控节点资源压力 |
-| **kube-proxy** | 网络代理，实现Service抽象 | iptables/IPVS | v1.0 | v1.26+ nftables | 大集群推荐IPVS模式；监控conntrack表使用 |
-| **Container Runtime** | 容器执行环境 | CRI接口 | v1.0 | v1.24+ 移除dockershim | 推荐containerd；定期清理未用镜像 |
-| **CoreDNS** | 集群DNS服务 | apiserver | v1.12+ 默认 | v1.28+ DNS缓存优化 | 根据集群规模调整副本数和缓存大小 |
-| **CNI Plugin** | 容器网络接口实现 | 节点网络 | v1.0 | v1.25+ 双栈增强 | 选择适合场景的CNI（Calico/Flannel/Cilium）|
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              Kubernetes Cluster                                  │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│  ┌─────────────────────────────── Control Plane ─────────────────────────────┐  │
+│  │                                                                           │  │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐  │  │
+│  │  │ API Server  │  │  Scheduler  │  │ Controller  │  │ Cloud Controller│  │  │
+│  │  │   :6443     │  │   :10259    │  │   Manager   │  │    Manager      │  │  │
+│  │  │             │  │             │  │   :10257    │  │    :10258       │  │  │
+│  │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  └───────┬─────────┘  │  │
+│  │         │                │                │                 │            │  │
+│  │         └────────────────┴────────────────┴─────────────────┘            │  │
+│  │                                   │                                       │  │
+│  │                          ┌────────┴────────┐                              │  │
+│  │                          │      etcd       │                              │  │
+│  │                          │   :2379/:2380   │                              │  │
+│  │                          └─────────────────┘                              │  │
+│  └───────────────────────────────────────────────────────────────────────────┘  │
+│                                      │                                          │
+│                                      │ HTTPS/gRPC                               │
+│                                      ▼                                          │
+│  ┌─────────────────────────────── Worker Nodes ──────────────────────────────┐  │
+│  │                                                                           │  │
+│  │  ┌─────────────────────────────── Node 1 ─────────────────────────────┐  │  │
+│  │  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────────┐   │  │  │
+│  │  │  │ kubelet  │  │kube-proxy│  │ Container│  │   CNI Plugin     │   │  │  │
+│  │  │  │  :10250  │  │  :10249  │  │ Runtime  │  │ (Calico/Cilium)  │   │  │  │
+│  │  │  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────────┬─────────┘   │  │  │
+│  │  │       └──────────────┴────────────┴─────────────────┘             │  │  │
+│  │  │                              │                                     │  │  │
+│  │  │  ┌───────────────────────────┼───────────────────────────────┐    │  │  │
+│  │  │  │      ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐         │    │  │  │
+│  │  │  │      │ Pod │  │ Pod │  │ Pod │  │ Pod │  │ Pod │  ...    │    │  │  │
+│  │  │  │      └─────┘  └─────┘  └─────┘  └─────┘  └─────┘         │    │  │  │
+│  │  │  └──────────────────────────────────────────────────────────┘    │  │  │
+│  │  └────────────────────────────────────────────────────────────────────┘  │  │
+│  │                                                                           │  │
+│  │  ┌─────────────────────────────── Node N ─────────────────────────────┐  │  │
+│  │  │                            ...                                     │  │  │
+│  │  └────────────────────────────────────────────────────────────────────┘  │  │
+│  └───────────────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
 
-## 架构层次详解
+## 控制平面组件
 
-| 架构层 | 包含组件 | 职责 | 高可用配置 | 扩展限制(官方测试) | ACK特定集成 |
-|-------|---------|------|-----------|-------------------|-------------|
-| **管理层** | apiserver, controller-manager, scheduler | 集群决策与API | 3/5节点奇数部署，负载均衡 | 5000节点/集群 | ACK Pro托管，自动HA |
-| **数据层** | etcd | 状态持久化 | 3/5节点Raft集群 | 8GB默认配额，可调 | 独立etcd集群选项 |
-| **计算层** | kubelet, 容器运行时 | 工作负载执行 | 节点故障自动驱逐 | 110 Pods/节点默认 | 弹性伸缩组集成 |
-| **网络层** | kube-proxy, CNI, CoreDNS | 服务发现与通信 | 多副本DaemonSet | 5000 Services/集群 | Terway CNI原生支持 |
-| **存储层** | CSI驱动, PV/PVC | 持久化存储 | 跨AZ复制 | 取决于后端存储 | 云盘CSI自动集成 |
+| 组件 | 功能 | 端口 | HA方式 | 故障影响 | 监控指标 |
+|------|------|------|--------|----------|----------|
+| kube-apiserver | REST API入口，认证授权 | 6443 | 多副本+LB | 集群完全不可用 | apiserver_request_* |
+| etcd | 分布式KV存储 | 2379/2380 | Raft集群 | 数据丢失风险 | etcd_server_* |
+| kube-scheduler | Pod调度决策 | 10259 | leader选举 | 新Pod无法调度 | scheduler_* |
+| kube-controller-manager | 控制器循环 | 10257 | leader选举 | 资源无法协调 | workqueue_* |
+| cloud-controller-manager | 云厂商集成 | 10258 | leader选举 | 云资源无法管理 | - |
 
-## 版本演进关键里程碑
+## 工作节点组件
 
-| 版本 | 架构变更 | 影响范围 | 迁移注意事项 | 生产影响评估 |
-|-----|---------|---------|-------------|-------------|
-| **v1.6** | etcd v3 API成为默认 | 数据存储 | 需要数据迁移工具 | 性能提升，存储效率改善 |
-| **v1.12** | CoreDNS替代kube-dns | DNS服务 | 配置迁移 | DNS性能和稳定性提升 |
-| **v1.16** | CRD v1 API稳定 | 扩展机制 | API版本更新 | 自定义资源更可靠 |
-| **v1.20** | Dockershim弃用公告 | 容器运行时 | 规划迁移到containerd | 需要运维团队准备 |
-| **v1.24** | 移除Dockershim | 容器运行时 | 必须使用CRI运行时 | **破坏性变更**，需提前迁移 |
-| **v1.25** | PodSecurityPolicy移除 | 安全策略 | 迁移到PSA | 安全模型变更 |
-| **v1.26** | 非优雅节点关闭GA | 节点管理 | 配置启用 | 提高节点故障恢复能力 |
-| **v1.27** | 就地Pod资源调整Alpha | 资源管理 | 可选启用 | 减少Pod重启 |
-| **v1.28** | Sidecar容器支持 | Pod设计 | 新功能Beta | 改善sidecar生命周期 |
-| **v1.29** | 负载均衡器IP模式 | 网络 | 新功能 | 简化云LB配置 |
-| **v1.30** | 节点交换内存支持 | 节点资源 | 可选启用 | 支持更多工作负载类型 |
-| **v1.31** | AppArmor GA | 安全 | 从注解迁移到字段 | 安全配置标准化 |
-| **v1.32** | 动态资源分配改进 | 资源管理 | 需要DRA驱动 | GPU等特殊设备管理优化 |
+| 组件 | 功能 | 端口 | 故障影响 | 诊断命令 |
+|------|------|------|----------|----------|
+| kubelet | Pod生命周期管理 | 10250/10255 | 节点NotReady | `systemctl status kubelet` |
+| kube-proxy | Service网络代理 | 10249/10256 | Service不可达 | `iptables -L -t nat` |
+| containerd | 容器运行时 | unix socket | 容器无法创建 | `crictl ps` |
+| CNI Plugin | Pod网络 | - | Pod网络不通 | `calicoctl node status` |
 
-## 生产部署架构模式
+## 版本演进关键变更
 
-| 部署模式 | 节点配置 | 适用场景 | 成本级别 | 可用性SLA | ACK对应方案 |
-|---------|---------|---------|---------|----------|-------------|
-| **单Master** | 1控制+N工作 | 开发测试 | 低 | 99% | ACK基础版 |
-| **HA三Master** | 3控制+N工作 | 小型生产 | 中 | 99.9% | ACK Pro版 |
-| **HA五Master** | 5控制+N工作 | 大型生产/金融 | 高 | 99.99% | ACK Pro+独立etcd |
-| **多集群联邦** | 多个独立集群 | 跨地域/多租户 | 很高 | 99.99%+ | ACK One |
+| 版本 | 关键变更 | 影响 | 迁移操作 |
+|------|----------|------|----------|
+| v1.24 | 移除dockershim | 必须使用CRI运行时 | 迁移到containerd |
+| v1.25 | 移除PSP | 安全策略变更 | 迁移到PSA |
+| v1.26 | nftables支持 | kube-proxy新后端 | 可选启用 |
+| v1.27 | 就地Pod资源调整Alpha | 减少Pod重启 | 可选启用 |
+| v1.28 | Sidecar容器Beta | 改善sidecar生命周期 | 可选启用 |
+| v1.29 | 负载均衡器IP模式 | 简化云LB配置 | 自动生效 |
+| v1.30 | 节点交换内存支持 | 支持更多工作负载 | 可选启用 |
+| v1.31 | AppArmor GA | 安全配置标准化 | 迁移注解到字段 |
+| v1.32 | DRA改进 | GPU等设备管理优化 | 需要DRA驱动 |
 
-## 常见生产问题
+## 集群规模限制
 
-| 问题类型 | 症状 | 根因分析 | 诊断命令 | 解决方案 |
-|---------|------|---------|---------|---------|
-| etcd性能下降 | API响应慢，调度延迟 | 磁盘IO瓶颈 | `etcdctl endpoint status` | 使用SSD，调整压缩参数 |
-| 控制平面过载 | 请求超时，503错误 | 请求量过大 | `kubectl get --raw /metrics` | 增加副本，启用缓存 |
-| 节点NotReady | Pod无法调度 | kubelet问题 | `kubectl describe node` | 检查kubelet日志，网络连通性 |
-| DNS解析失败 | 服务发现异常 | CoreDNS问题 | `kubectl logs -n kube-system coredns-*` | 调整CoreDNS资源，检查上游DNS |
-| 网络分区 | Pod间通信失败 | CNI配置错误 | `kubectl exec -- ping` | 检查CNI状态，节点网络 |
+| 维度 | 官方支持上限 | 生产建议 | 超限影响 |
+|------|-------------|----------|----------|
+| 节点数 | 5000 | 3000 | 控制平面过载 |
+| Pod总数 | 150000 | 100000 | etcd/apiserver压力 |
+| Pod/节点 | 110 | 110 | kubelet压力 |
+| Service数 | 10000 | 5000 | kube-proxy压力 |
+| 后端/Service | 5000 | 1000 | EndpointSlice膨胀 |
+| Namespace数 | 10000 | 1000 | API压力 |
+| ConfigMap大小 | 1MB | 256KB | etcd压力 |
+| Secret大小 | 1MB | 256KB | etcd压力 |
 
----
+## 高可用部署架构
 
-**导出说明**: 本表格采用标准Markdown格式，可直接使用pandas读取或导出为CSV/Excel:
-```python
-import pandas as pd
-tables = pd.read_html('01-kubernetes-architecture.md')
+### 堆叠etcd拓扑 (推荐小规模)
+
+```yaml
+# kubeadm 配置
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: ClusterConfiguration
+kubernetesVersion: v1.30.0
+controlPlaneEndpoint: "api-lb.example.com:6443"
+etcd:
+  local:
+    dataDir: /var/lib/etcd
+    extraArgs:
+      quota-backend-bytes: "8589934592"
+      auto-compaction-retention: "1"
+networking:
+  podSubnet: "10.244.0.0/16"
+  serviceSubnet: "10.96.0.0/12"
+apiServer:
+  extraArgs:
+    max-requests-inflight: "800"
+    max-mutating-requests-inflight: "400"
+    audit-log-path: "/var/log/kubernetes/audit/audit.log"
+    audit-policy-file: "/etc/kubernetes/audit-policy.yaml"
+    encryption-provider-config: "/etc/kubernetes/encryption-config.yaml"
+  extraVolumes:
+  - name: audit-log
+    hostPath: /var/log/kubernetes/audit
+    mountPath: /var/log/kubernetes/audit
+  - name: audit-policy
+    hostPath: /etc/kubernetes/audit-policy.yaml
+    mountPath: /etc/kubernetes/audit-policy.yaml
+    readOnly: true
+controllerManager:
+  extraArgs:
+    concurrent-deployment-syncs: "10"
+    concurrent-replicaset-syncs: "10"
+scheduler:
+  extraArgs:
+    kube-api-qps: "100"
+    kube-api-burst: "200"
+```
+
+### 外部etcd拓扑 (推荐大规模)
+
+```yaml
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: ClusterConfiguration
+kubernetesVersion: v1.30.0
+controlPlaneEndpoint: "api-lb.example.com:6443"
+etcd:
+  external:
+    endpoints:
+    - https://etcd-0.example.com:2379
+    - https://etcd-1.example.com:2379
+    - https://etcd-2.example.com:2379
+    caFile: /etc/kubernetes/pki/etcd/ca.crt
+    certFile: /etc/kubernetes/pki/etcd/apiserver-etcd-client.crt
+    keyFile: /etc/kubernetes/pki/etcd/apiserver-etcd-client.key
+```
+
+## 网络架构
+
+| 网络类型 | CIDR范围 | 用途 | 配置位置 |
+|----------|----------|------|----------|
+| Pod Network | 10.244.0.0/16 | Pod IP分配 | CNI配置 |
+| Service Network | 10.96.0.0/12 | Service ClusterIP | apiserver启动参数 |
+| Node Network | 物理/云网络 | 节点通信 | 基础设施 |
+
+### CNI选型对比
+
+| CNI | 模式 | 性能 | NetworkPolicy | 适用场景 |
+|-----|------|------|---------------|----------|
+| Calico | BGP/IPIP/VXLAN | 高 | 完整支持 | 通用生产环境 |
+| Cilium | eBPF | 最高 | 完整+增强 | 高性能/安全要求 |
+| Flannel | VXLAN/host-gw | 中 | 不支持 | 简单场景 |
+| Terway | ENI/ENIIP | 高 | 支持 | 阿里云ACK |
+| AWS VPC CNI | ENI | 高 | 支持 | AWS EKS |
+
+## 存储架构
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Storage Architecture                      │
+├─────────────────────────────────────────────────────────────┤
+│  Pod                                                         │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │ volumeMounts:                                        │    │
+│  │   - name: data                                       │    │
+│  │     mountPath: /data                                 │    │
+│  └─────────────────────────────────────────────────────┘    │
+│                           │                                  │
+│                           ▼                                  │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │ PersistentVolumeClaim (PVC)                         │    │
+│  │   - storageClassName: alicloud-disk-essd            │    │
+│  │   - accessModes: [ReadWriteOnce]                    │    │
+│  │   - resources.requests.storage: 100Gi               │    │
+│  └─────────────────────────────────────────────────────┘    │
+│                           │                                  │
+│                           ▼                                  │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │ StorageClass                                         │    │
+│  │   - provisioner: disk.csi.aliyun.com                │    │
+│  │   - parameters:                                      │    │
+│  │       type: cloud_essd                              │    │
+│  │       performanceLevel: PL1                         │    │
+│  └─────────────────────────────────────────────────────┘    │
+│                           │                                  │
+│                           ▼                                  │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │ CSI Driver                                           │    │
+│  │   - Controller (Provisioner, Attacher, Resizer)     │    │
+│  │   - Node Plugin (NodePublish, NodeStage)            │    │
+│  └─────────────────────────────────────────────────────┘    │
+│                           │                                  │
+│                           ▼                                  │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │ Backend Storage (云盘/NAS/OSS)                       │    │
+│  └─────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## 生产部署检查清单
+
+### 控制平面
+
+```bash
+# 检查控制平面组件状态
+kubectl get componentstatuses  # 已弃用但可用
+kubectl get --raw='/readyz?verbose'
+kubectl get --raw='/livez?verbose'
+
+# 检查 API Server 指标
+kubectl get --raw /metrics | grep apiserver_request_duration
+
+# 检查 etcd 健康
+etcdctl --endpoints=https://127.0.0.1:2379 \
+  --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+  --cert=/etc/kubernetes/pki/etcd/healthcheck-client.crt \
+  --key=/etc/kubernetes/pki/etcd/healthcheck-client.key \
+  endpoint health --cluster
+
+# 检查 etcd 大小
+etcdctl endpoint status --cluster -w table
+```
+
+### 工作节点
+
+```bash
+# 检查节点状态
+kubectl get nodes -o wide
+kubectl describe node <node-name> | grep -A 10 Conditions
+
+# 检查 kubelet
+systemctl status kubelet
+journalctl -u kubelet -f --no-pager | tail -100
+
+# 检查容器运行时
+crictl info
+crictl ps
+crictl images
+
+# 检查 kube-proxy
+kubectl logs -n kube-system -l k8s-app=kube-proxy --tail=100
+iptables -L -t nat | head -50  # iptables模式
+ipvsadm -Ln  # IPVS模式
+```
+
+## 常见生产问题诊断
+
+| 问题 | 症状 | 诊断命令 | 解决方案 |
+|------|------|----------|----------|
+| etcd磁盘满 | API响应503 | `etcdctl endpoint status` | 压缩+碎片整理 |
+| API过载 | 请求超时 | `kubectl get --raw /metrics \| grep inflight` | 增加并发限制 |
+| 调度失败 | Pod Pending | `kubectl describe pod` | 检查资源/亲和性 |
+| 节点NotReady | Pod驱逐 | `kubectl describe node` | 检查kubelet |
+| DNS失败 | 服务发现异常 | `kubectl logs -n kube-system coredns-*` | 检查CoreDNS |
+
+## Prometheus 监控规则
+
+```yaml
+groups:
+- name: kubernetes-control-plane
+  rules:
+  - alert: KubeAPIServerDown
+    expr: absent(up{job="kubernetes-apiservers"} == 1)
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Kubernetes API Server 不可用"
+      
+  - alert: KubeAPIServerLatencyHigh
+    expr: |
+      histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket{verb!="WATCH"}[5m])) by (le, verb)) > 1
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "API Server P99 延迟 > 1s"
+      
+  - alert: EtcdNoLeader
+    expr: etcd_server_has_leader == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "etcd 集群无 Leader"
+      
+  - alert: EtcdDatabaseSizeHigh
+    expr: etcd_mvcc_db_total_size_in_bytes / etcd_server_quota_backend_bytes > 0.8
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "etcd 数据库使用率 > 80%"
+      
+  - alert: KubeSchedulerPendingPods
+    expr: scheduler_pending_pods > 50
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: "待调度 Pod 积压 > 50"
+```
+
+## ACK 架构特点
+
+| 版本 | 控制平面 | etcd | 特点 |
+|------|----------|------|------|
+| ACK 标准版 | 用户管理 | 用户管理 | 完全控制 |
+| ACK Pro版 | 托管 | 托管 | 零运维、自动HA |
+| ACK Serverless | 托管 | 托管 | 按需付费、无节点管理 |
+
+### ACK Pro 托管架构
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                     阿里云 ACK Pro                            │
+├──────────────────────────────────────────────────────────────┤
+│  ┌─────────────────── 阿里云托管 ───────────────────────┐    │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  │    │
+│  │  │ API Server  │  │  Scheduler  │  │ Controller  │  │    │
+│  │  │ (托管HA)    │  │ (托管HA)    │  │  (托管HA)   │  │    │
+│  │  └─────────────┘  └─────────────┘  └─────────────┘  │    │
+│  │                                                      │    │
+│  │  ┌─────────────────────────────────────────────┐    │    │
+│  │  │              etcd (托管集群)                 │    │    │
+│  │  │         自动备份、自动扩容、跨AZ            │    │    │
+│  │  └─────────────────────────────────────────────┘    │    │
+│  └──────────────────────────────────────────────────────┘    │
+│                            │                                  │
+│                            ▼                                  │
+│  ┌──────────────── 用户 VPC ────────────────────────────┐    │
+│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐    │    │
+│  │  │ Worker  │ │ Worker  │ │ Worker  │ │ Worker  │    │    │
+│  │  │ Node 1  │ │ Node 2  │ │ Node 3  │ │ Node N  │    │    │
+│  │  └─────────┘ └─────────┘ └─────────┘ └─────────┘    │    │
+│  │                                                      │    │
+│  │  ┌─────────────────────────────────────────────┐    │    │
+│  │  │   Terway CNI (ENI/ENIIP模式)                │    │    │
+│  │  └─────────────────────────────────────────────┘    │    │
+│  └──────────────────────────────────────────────────────┘    │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### ACK 集群创建参数
+
+```bash
+# 使用 aliyun CLI 创建 ACK Pro 集群
+aliyun cs POST /clusters --body '{
+  "name": "production-cluster",
+  "cluster_type": "ManagedKubernetes",
+  "kubernetes_version": "1.30.1-aliyun.1",
+  "region_id": "cn-hangzhou",
+  "vpcid": "vpc-xxx",
+  "container_cidr": "10.244.0.0/16",
+  "service_cidr": "10.96.0.0/16",
+  "num_of_nodes": 3,
+  "master_instance_types": ["ecs.g7.xlarge"],
+  "worker_instance_types": ["ecs.g7.2xlarge"],
+  "worker_system_disk_category": "cloud_essd",
+  "worker_system_disk_size": 120,
+  "worker_data_disks": [{
+    "category": "cloud_essd",
+    "size": 200,
+    "encrypted": "true"
+  }],
+  "addons": [
+    {"name": "terway-eniip"},
+    {"name": "csi-plugin"},
+    {"name": "csi-provisioner"},
+    {"name": "nginx-ingress-controller"},
+    {"name": "arms-prometheus"}
+  ],
+  "tags": [
+    {"key": "env", "value": "production"}
+  ]
+}'
 ```

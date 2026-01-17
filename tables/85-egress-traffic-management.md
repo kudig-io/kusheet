@@ -1,5 +1,7 @@
 # 表格85: Egress流量管理
 
+> **适用版本**: v1.25 - v1.32 | **最后更新**: 2026-01 | **参考**: [kubernetes.io/docs/concepts/services-networking/network-policies](https://kubernetes.io/docs/concepts/services-networking/network-policies/)
+
 ## Egress流量控制方案
 
 | 方案 | 功能 | 复杂度 | 适用场景 |

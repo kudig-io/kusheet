@@ -146,6 +146,53 @@ echo -e "\n====== 检查完成 ======"
 | **网络诊断** | 控制台 | 网络连通性 |
 | **ARMS监控** | ARMS控制台 | 组件指标 |
 
+## 健康检查告警规则
+
+```yaml
+# PrometheusRule - 集群健康检查告警
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: cluster-health-alerts
+  namespace: monitoring
+spec:
+  groups:
+  - name: cluster-health
+    rules:
+    - alert: KubeAPIServerDown
+      expr: up{job="kubernetes-apiservers"} == 0
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "API Server不可用"
+        description: "Kubernetes API Server已停止响应"
+    - alert: EtcdNoLeader
+      expr: etcd_server_has_leader == 0
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "etcd无Leader"
+        description: "etcd集群没有选出Leader"
+    - alert: NodeNotReady
+      expr: kube_node_status_condition{condition="Ready",status="true"} == 0
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "节点NotReady"
+        description: "节点 {{ $labels.node }} 状态为NotReady"
+    - alert: PodCrashLooping
+      expr: rate(kube_pod_container_status_restarts_total[15m]) > 0.1
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Pod频繁重启"
+        description: "Pod {{ $labels.namespace }}/{{ $labels.pod }} 频繁重启"
+```
+
 ---
 
 **健康检查原则**: 定期检查，自动化监控，快速响应

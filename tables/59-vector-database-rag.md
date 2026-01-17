@@ -1,5 +1,7 @@
 # 表格59: 向量数据库与RAG
 
+> **适用版本**: v1.25 - v1.32 | **最后更新**: 2026-01 | **参考**: [kubernetes.io/docs/concepts/workloads](https://kubernetes.io/docs/concepts/workloads/)
+
 ## 向量数据库对比
 
 | 数据库 | 类型 | 索引算法 | K8s部署 | 适用规模 |

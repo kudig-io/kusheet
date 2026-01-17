@@ -230,3 +230,27 @@ aliyun cs ScaleClusterNodePool --ClusterId <cluster-id> --NodepoolId <nodepool-i
 ---
 
 **ACK最佳实践**: 使用Pro版，配置弹性伸缩，集成ARMS监控，启用安全加固
+
+## ACK版本对齐详表
+
+> **官方版本说明**: [https://help.aliyun.com/document_detail/86508.html](https://help.aliyun.com/document_detail/86508.html)
+
+| ACK版本 | 对应K8S | 发布状态 | EOL | 独特特性 | 兼容变更 | 运维提示 |
+|--------|---------|---------|-----|---------|---------|---------|
+| **ACK 1.28** | K8S 1.28 | 维护中 | 官方公告 | Sidecar原生支持 | 调度API | 升级建议 |
+| **ACK 1.29** | K8S 1.29 | 维护中 | 官方公告 | registry.k8s.io | 镜像仓库 | ACR配置 |
+| **ACK 1.30** | K8S 1.30 | 推荐 | ~2025-06 | CEL校验、ACR加速 | SLB API | RAM权限 |
+| **ACK 1.31** | K8S 1.31 | 强烈推荐 | ~2025-10 | Sidecar GA、ASM集成 | 网络策略 | 配额检查 |
+| **ACK 1.32** | K8S 1.32 | 最新 | ~2026-02 | Job可观测、GPU优化 | CSI增强 | 存储验证 |
+
+### ACK vs 原生K8s差异
+
+| 差异项 | 原生K8s | ACK | 说明 |
+|-------|---------|-----|------|
+| **控制平面** | 自行管理 | 托管 | 免运维 |
+| **etcd** | 自行部署 | 托管+备份 | 自动备份 |
+| **网络** | 任意CNI | Terway/Flannel | 云原生 |
+| **存储** | 任意CSI | 云盘/NAS/OSS | 云集成 |
+| **监控** | 自行配置 | ARMS集成 | 一键开启 |
+| **安全** | 自行配置 | 云安全中心 | 托管扫描 |
+| **升级** | 手动 | 控制台/API | 灰度支持 |

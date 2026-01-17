@@ -1,6 +1,6 @@
 # Kubernetes 安全加固
 
-> Kubernetes 版本: v1.25 - v1.32 | 适用环境: 生产集群
+> **适用版本**: v1.25 - v1.32 | **最后更新**: 2026-01 | **参考**: [kubernetes.io/docs/concepts/security](https://kubernetes.io/docs/concepts/security/)
 
 ## 安全加固层级
 
@@ -421,3 +421,20 @@ groups:
 kubectl apply -f https://raw.githubusercontent.com/aquasecurity/kube-bench/main/job.yaml
 kubectl logs job/kube-bench
 ```
+
+## CVE和安全漏洞参考表
+
+> **官方安全公告**: [github.com/kubernetes/kubernetes/security/advisories](https://github.com/kubernetes/kubernetes/security/advisories)
+
+| CVE | 严重性 | 影响版本 | 描述 | 修复版本 | 缓解措施 | 生产影响 |
+|-----|-------|---------|------|---------|---------|---------|
+| **CVE-2024-21626** | Critical | runc ≤1.1.11 | 容器逃逸 | runc 1.1.12+ | 升级containerd | 紧急升级 |
+| **CVE-2024-10220** | High | 多版本 | Webhook DoS | v1.29+ | API限流 | SLA影响 |
+| **CVE-2023-2727** | High | ≤v1.27.3 | RBAC绕过 | v1.27.4+ | 审计RBAC | 安全扫描 |
+| **CVE-2023-3955** | Medium | ≤v1.28.1 | 信息泄露 | v1.28.2+ | API限制 | 合规 |
+| **CVE-2022-0185** | Critical | Linux内核 | 容器逃逸 | Kernel patch | PSA | 紧急 |
+| **CVE-2022-3294** | High | ≤v1.25.4 | Node授权绕过 | v1.25.5+ | 审计权限 | 集群安全 |
+
+---
+
+**安全原则**: 最小权限，深度防御，持续监控，及时响应

@@ -1,6 +1,6 @@
 # 存储性能调优
 
-> Kubernetes 版本: v1.25 - v1.32 | 适用环境: 生产集群
+> **适用版本**: v1.25 - v1.32 | **最后更新**: 2026-01 | **参考**: [kubernetes.io/docs/concepts/storage](https://kubernetes.io/docs/concepts/storage/)
 
 ## 存储类型性能对比
 

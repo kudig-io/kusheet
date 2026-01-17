@@ -1,5 +1,7 @@
 # 表格63: LLM成本监控与优化
 
+> **适用版本**: v1.25 - v1.32 | **最后更新**: 2026-01 | **参考**: [kubernetes.io/docs/concepts/cluster-administration](https://kubernetes.io/docs/concepts/cluster-administration/)
+
 ## LLM成本构成
 
 | 成本类型 | 占比 | 优化方向 |

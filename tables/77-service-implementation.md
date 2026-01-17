@@ -1,5 +1,7 @@
 # 表格77: Service实现机制
 
+> **适用版本**: v1.25 - v1.32 | **最后更新**: 2026-01 | **参考**: [kubernetes.io/docs/concepts/services-networking/service](https://kubernetes.io/docs/concepts/services-networking/service/)
+
 ## Service类型对比
 
 | 类型 | 访问范围 | 负载均衡 | 外部访问 | 使用场景 |

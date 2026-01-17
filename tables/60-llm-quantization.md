@@ -1,5 +1,7 @@
 # 表格60: LLM模型量化部署
 
+> **适用版本**: v1.25 - v1.32 | **最后更新**: 2026-01 | **参考**: [kubernetes.io/docs/concepts/workloads](https://kubernetes.io/docs/concepts/workloads/)
+
 ## 量化方法对比
 
 | 方法 | 精度损失 | 压缩比 | 推理速度 | 显存节省 | 复杂度 |

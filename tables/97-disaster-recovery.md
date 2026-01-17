@@ -1,6 +1,6 @@
 # Kubernetes 灾难恢复
 
-> Kubernetes 版本: v1.25 - v1.32 | 适用环境: 生产集群
+> **适用版本**: v1.25 - v1.32 | **最后更新**: 2026-01 | **参考**: [kubernetes.io/docs/tasks/administer-cluster](https://kubernetes.io/docs/tasks/administer-cluster/)
 
 ## 灾难恢复等级
 

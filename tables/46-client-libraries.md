@@ -1,5 +1,7 @@
 # 表格46: Kubernetes客户端库
 
+> **适用版本**: v1.25 - v1.32 | **最后更新**: 2026-01 | **参考**: [kubernetes.io/docs/reference/using-api/client-libraries](https://kubernetes.io/docs/reference/using-api/client-libraries/)
+
 ## 官方客户端库
 
 | 语言 | 仓库 | 维护状态 | 版本对应 |
@@ -158,6 +160,42 @@ public class Example {
 | ServiceAccount | Pod内运行 | 自动挂载Token |
 | Bearer Token | API访问 | `BearerToken` 配置 |
 | Client证书 | mTLS | 证书+密钥 |
+
+## 客户端ServiceAccount配置
+
+```yaml
+# 为Operator/Controller配置ServiceAccount
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: my-operator
+  namespace: operators
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: my-operator-role
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "configmaps"]
+  verbs: ["get", "list", "watch", "create", "update", "delete"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "watch", "create", "update", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: my-operator-binding
+subjects:
+- kind: ServiceAccount
+  name: my-operator
+  namespace: operators
+roleRef:
+  kind: ClusterRole
+  name: my-operator-role
+  apiGroup: rbac.authorization.k8s.io
+```
 
 ## 客户端版本兼容性
 

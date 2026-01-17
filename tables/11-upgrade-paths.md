@@ -1,19 +1,50 @@
 # 表格11：升级路径表
 
-> **适用版本**: v1.25 - v1.32 | **最后更新**: 2026-01 | **参考**: [kubernetes.io/docs/tasks/administer-cluster/cluster-upgrade](https://kubernetes.io/releases/version-skew-policy/)
+> **适用版本**: v1.25 - v1.32 | **最后更新**: 2026-01 | **参考**: [kubernetes.io/releases/version-skew-policy](https://kubernetes.io/releases/version-skew-policy/)
+
+## 升级决策流程
+
+```
+升级决策流程图:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│  1. 评估阶段                                                                │
+│     ├─ 检查当前版本EOL状态                                                   │
+│     ├─ 评估目标版本的功能需求                                                │
+│     ├─ 检查已弃用/移除的API                                                  │
+│     └─ 评估依赖组件兼容性                                                    │
+│                                                                             │
+│  2. 准备阶段                                                                │
+│     ├─ 在staging环境完整测试                                                 │
+│     ├─ 更新所有使用弃用API的YAML                                             │
+│     ├─ 备份etcd和关键配置                                                    │
+│     └─ 准备回滚方案                                                          │
+│                                                                             │
+│  3. 执行阶段                                                                │
+│     ├─ 升级控制平面 (先升级apiserver)                                        │
+│     ├─ 升级节点 (滚动升级，逐节点)                                            │
+│     └─ 升级附加组件 (CNI、DNS、Ingress等)                                    │
+│                                                                             │
+│  4. 验证阶段                                                                │
+│     ├─ 验证集群功能                                                          │
+│     ├─ 验证应用健康                                                          │
+│     └─ 监控7天稳定期                                                         │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
 
 ## 版本支持策略
 
-| 版本 | 发布日期 | EOL日期 | 支持状态 | 迁移紧迫性 |
-|-----|---------|--------|---------|-----------|
-| **v1.25** | 2022-08 | 2023-10 | **EOL** | 紧急迁移 |
-| **v1.26** | 2022-12 | 2024-02 | **EOL** | 紧急迁移 |
-| **v1.27** | 2023-04 | 2024-06 | **EOL** | 尽快迁移 |
-| **v1.28** | 2023-08 | 2024-10 | **EOL** | 计划迁移 |
-| **v1.29** | 2023-12 | 2025-02 | 维护中 | 关注 |
-| **v1.30** | 2024-04 | 2025-06 | 维护中 | 稳定 |
-| **v1.31** | 2024-08 | 2025-10 | 维护中 | 推荐 |
-| **v1.32** | 2024-12 | 2026-02 | 最新稳定 | 推荐 |
+| 版本 | 发布日期 | EOL日期 | 支持状态 | 迁移紧迫性 | 关键特性 |
+|-----|---------|--------|---------|-----------|---------|
+| **v1.25** | 2022-08 | 2023-10 | **EOL** | 紧急迁移 | PSP移除、调试容器GA |
+| **v1.26** | 2022-12 | 2024-02 | **EOL** | 紧急迁移 | nftables Alpha |
+| **v1.27** | 2023-04 | 2024-06 | **EOL** | 尽快迁移 | 就地调整Alpha、auth whoami |
+| **v1.28** | 2023-08 | 2024-10 | **EOL** | 计划迁移 | Sidecar容器Beta |
+| **v1.29** | 2023-12 | 2025-02 | 维护中 | 关注 | LB IP模式 |
+| **v1.30** | 2024-04 | 2025-06 | 维护中 | 稳定 | CEL准入GA、Sidecar GA |
+| **v1.31** | 2024-08 | 2025-10 | 维护中 | 推荐 | AppArmor GA |
+| **v1.32** | 2024-12 | 2026-02 | 最新稳定 | 推荐 | DRA GA、就地调整GA |
 
 ## 版本偏差策略
 
@@ -166,6 +197,40 @@ etcdctl snapshot restore snapshot.db \
 |-----|------|------|------|
 | **准备(D-7)** | 1-2天 | 检查清单，备份，测试环境验证 | SRE |
 | **通知(D-3)** | - | 发送变更通知 | PM |
+
+## 升级前置检查配置
+
+```yaml
+# 升级预检查Job
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pre-upgrade-check
+  namespace: kube-system
+spec:
+  template:
+    spec:
+      serviceAccountName: upgrade-checker
+      containers:
+      - name: checker
+        image: bitnami/kubectl:latest
+        command:
+        - /bin/bash
+        - -c
+        - |
+          echo "=== 升级前置检查 ==="
+          echo "1. 检查节点状态..."
+          kubectl get nodes -o wide
+          echo "2. 检查弃用API..."
+          kubectl get --raw /metrics | grep apiserver_requested_deprecated_apis
+          echo "3. 检查PDB..."
+          kubectl get pdb -A
+          echo "4. 检查etcd健康..."
+          kubectl get --raw=/healthz/etcd
+          echo "=== 检查完成 ==="
+      restartPolicy: Never
+  backoffLimit: 1
+```
 | **预检(D-1)** | 2小时 | 最终检查，确认备份 | SRE |
 | **升级(D)** | 2-4小时 | 执行升级 | SRE |
 | **验证(D)** | 1-2小时 | 功能验证 | SRE+QA |

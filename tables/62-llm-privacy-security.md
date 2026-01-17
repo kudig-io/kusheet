@@ -1,5 +1,7 @@
 # 表格62: LLM隐私与安全
 
+> **适用版本**: v1.25 - v1.32 | **最后更新**: 2026-01 | **参考**: [kubernetes.io/docs/concepts/security](https://kubernetes.io/docs/concepts/security/)
+
 ## LLM安全风险类型
 
 | 风险类型 | 描述 | 防护措施 |

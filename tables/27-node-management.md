@@ -1,5 +1,22 @@
 # 表格27: 节点管理与维护
 
+> **适用版本**: v1.25 - v1.32 | **最后更新**: 2026-01 | **参考**: [kubernetes.io/docs/concepts/architecture/nodes](https://kubernetes.io/docs/concepts/architecture/nodes/)
+
+## 节点管理决策流程
+
+```
+节点管理决策流程:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│  节点问题检测 → 评估影响范围 → 选择处理策略 → 执行操作 → 验证恢复            │
+│       │              │              │              │           │            │
+│       ├─ 监控告警    ├─ Pod数量     ├─ cordon      ├─ 手动     ├─ 节点状态  │
+│       ├─ NPD        ├─ 关键服务    ├─ drain       ├─ 自动     ├─ Pod状态   │
+│       └─ 用户报告   └─ 可用容量    └─ 替换节点    └─ 定时     └─ 监控指标  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
 ## 节点生命周期状态
 
 | 状态 | Condition | 描述 | 处理策略 |
@@ -104,3 +121,50 @@
 | v1.28 | Sidecar容器原生支持 |
 | v1.29 | 节点优雅关机改进 |
 | v1.30 | 用户命名空间支持改进 |
+
+## 节点维护PDB配置
+
+```yaml
+# 节点维护时保护关键应用的PDB
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: critical-app-pdb
+  namespace: production
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: critical-app
+---
+# 节点亲和性配置示例
+apiVersion: v1
+kind: Pod
+metadata:
+  name: workload-example
+spec:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: workload-type
+            operator: In
+            values:
+            - compute
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        preference:
+          matchExpressions:
+          - key: topology.kubernetes.io/zone
+            operator: In
+            values:
+            - cn-hangzhou-h
+  tolerations:
+  - key: "node.kubernetes.io/memory-pressure"
+    operator: "Exists"
+    effect: "NoSchedule"
+  containers:
+  - name: app
+    image: nginx:1.25
+```

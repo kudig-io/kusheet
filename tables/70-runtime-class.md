@@ -1,5 +1,7 @@
 # 表格70: RuntimeClass配置
 
+> **适用版本**: v1.25 - v1.32 | **最后更新**: 2026-01 | **参考**: [kubernetes.io/docs/concepts/containers/runtime-class](https://kubernetes.io/docs/concepts/containers/runtime-class/)
+
 ## RuntimeClass概述
 
 | 字段 | 说明 |

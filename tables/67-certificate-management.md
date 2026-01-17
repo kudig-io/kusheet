@@ -1,5 +1,7 @@
 # 表格67: 证书管理与TLS配置
 
+> **适用版本**: v1.25 - v1.32 | **最后更新**: 2026-01 | **参考**: [kubernetes.io/docs/tasks/tls/managing-tls-in-a-cluster](https://kubernetes.io/docs/tasks/tls/managing-tls-in-a-cluster/)
+
 ## Kubernetes证书类型
 
 | 证书类型 | 用途 | 有效期建议 |

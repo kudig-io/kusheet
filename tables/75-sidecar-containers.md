@@ -1,5 +1,7 @@
 # 表格75: Sidecar容器模式
 
+> **适用版本**: v1.25 - v1.32 | **最后更新**: 2026-01 | **参考**: [kubernetes.io/docs/concepts/workloads/pods/sidecar-containers](https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/)
+
 ## Sidecar容器类型(v1.28+)
 
 | 类型 | 特点 | 用途 |

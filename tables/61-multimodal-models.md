@@ -1,5 +1,7 @@
 # 表格61: 多模态模型部署
 
+> **适用版本**: v1.25 - v1.32 | **最后更新**: 2026-01 | **参考**: [kubernetes.io/docs/concepts/workloads](https://kubernetes.io/docs/concepts/workloads/)
+
 ## 多模态模型类型
 
 | 类型 | 代表模型 | 功能 | 资源需求 |

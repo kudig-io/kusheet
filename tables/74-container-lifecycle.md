@@ -1,5 +1,7 @@
 # 表格74: 容器生命周期钩子
 
+> **适用版本**: v1.25 - v1.32 | **最后更新**: 2026-01 | **参考**: [kubernetes.io/docs/concepts/containers/container-lifecycle-hooks](https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/)
+
 ## 生命周期钩子类型
 
 | 钩子 | 触发时机 | 用途 |

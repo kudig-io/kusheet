@@ -1,5 +1,7 @@
 # 表格55: 虚拟集群与多租户
 
+> **适用版本**: v1.25 - v1.32 | **最后更新**: 2026-01 | **参考**: [kubernetes.io/docs/concepts/security/multi-tenancy](https://kubernetes.io/docs/concepts/security/multi-tenancy/)
+
 ## 多租户隔离模式
 
 | 模式 | 隔离级别 | 资源效率 | 管理复杂度 | 适用场景 |

@@ -1,5 +1,7 @@
 # 表格51: 容器镜像管理
 
+> **适用版本**: v1.25 - v1.32 | **最后更新**: 2026-01 | **参考**: [kubernetes.io/docs/concepts/containers/images](https://kubernetes.io/docs/concepts/containers/images/)
+
 ## 镜像命名规范
 
 | 组成部分 | 示例 | 说明 |

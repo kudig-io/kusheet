@@ -1,5 +1,7 @@
 # 表格79: Ingress控制器配置
 
+> **适用版本**: v1.25 - v1.32 | **最后更新**: 2026-01 | **参考**: [kubernetes.io/docs/concepts/services-networking/ingress-controllers](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/)
+
 ## Ingress控制器对比
 
 | 控制器 | 维护者 | 特点 | 适用场景 |

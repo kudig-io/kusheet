@@ -1,5 +1,7 @@
 # 表格33: 服务发现与DNS配置
 
+> **适用版本**: v1.25 - v1.32 | **最后更新**: 2026-01 | **参考**: [kubernetes.io/docs/concepts/services-networking/dns-pod-service](https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/)
+
 ## CoreDNS配置
 
 | 配置项 | 默认值 | 说明 |

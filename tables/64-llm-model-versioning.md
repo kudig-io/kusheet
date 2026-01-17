@@ -1,5 +1,7 @@
 # 表格64: LLM模型版本管理
 
+> **适用版本**: v1.25 - v1.32 | **最后更新**: 2026-01 | **参考**: [kubernetes.io/docs/concepts/workloads](https://kubernetes.io/docs/concepts/workloads/)
+
 ## 模型版本管理工具
 
 | 工具 | 类型 | 功能 | K8s集成 |

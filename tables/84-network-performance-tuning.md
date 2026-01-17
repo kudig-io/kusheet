@@ -1,5 +1,7 @@
 # 表格84: 网络性能调优
 
+> **适用版本**: v1.25 - v1.32 | **最后更新**: 2026-01 | **参考**: [kubernetes.io/docs/concepts/cluster-administration/networking](https://kubernetes.io/docs/concepts/cluster-administration/networking/)
+
 ## 网络性能瓶颈
 
 | 瓶颈类型 | 症状 | 诊断方法 |
