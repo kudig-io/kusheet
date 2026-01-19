@@ -1,6 +1,6 @@
 # Kusheet - Kubernetes 生产运维全域知识库
 
-> **适用版本**: Kubernetes v1.25 - v1.32 | **最后更新**: 2026-01 | **表格数量**: 147
+> **适用版本**: Kubernetes v1.25 - v1.32 | **最后更新**: 2026-01 | **表格数量**: 167
 
 ---
 
@@ -16,7 +16,7 @@ Kusheet 是面向**生产环境**的 Kubernetes + AI Infrastructure 运维全域
 
 ---
 
-## 完整表格清单 (147 Tables)
+## 完整表格清单 (167 Tables)
 
 ### 01-10: 架构与基础 (Architecture & Fundamentals)
 
@@ -32,6 +32,21 @@ Kusheet 是面向**生产环境**的 Kubernetes + AI Infrastructure 运维全域
 | 08 | 多租户 | [multi-tenancy-architecture](./tables/08-multi-tenancy-architecture.md) |
 | 09 | 边缘计算 | [edge-computing-kubeedge](./tables/09-edge-computing-kubeedge.md) |
 | 10 | Win容器 | [windows-containers-support](./tables/10-windows-containers-support.md) |
+
+### 11-20: K8S原理与机制 (Principles & Mechanisms)
+
+| 编号 | 简称 | 表格 |
+|:---:|:---:|:---|
+| 11 | 设计原则 | [kubernetes-design-principles](./tables/11-kubernetes-design-principles.md) |
+| 12 | 声明式API | [declarative-api-pattern](./tables/12-declarative-api-pattern.md) |
+| 13 | 控制器模式 | [controller-pattern-reconciliation](./tables/13-controller-pattern-reconciliation.md) |
+| 14 | Watch/List | [watch-list-mechanism](./tables/14-watch-list-mechanism.md) |
+| 15 | Informer | [informer-workqueue](./tables/15-informer-workqueue.md) |
+| 16 | 乐观并发 | [resource-version-optimistic-concurrency](./tables/16-resource-version-optimistic-concurrency.md) |
+| 17 | etcd共识 | [distributed-consensus-etcd](./tables/17-distributed-consensus-etcd.md) |
+| 18 | 高可用模式 | [high-availability-patterns](./tables/18-high-availability-patterns.md) |
+| 19 | 源码解读 | [kubernetes-source-code-walkthrough](./tables/19-kubernetes-source-code-walkthrough.md) |
+| 20 | CAP定理 | [cap-theorem-distributed-systems](./tables/20-cap-theorem-distributed-systems.md) |
 
 ### 21-34: 工作负载与调度 (Workloads & Scheduling)
 
@@ -51,6 +66,26 @@ Kusheet 是面向**生产环境**的 Kubernetes + AI Infrastructure 运维全域
 | 32 | HPA/VPA | [hpa-vpa-autoscaling](./tables/32-hpa-vpa-autoscaling.md) |
 | 33 | 容量规划 | [cluster-capacity-planning](./tables/33-cluster-capacity-planning.md) |
 | 34 | 资源管理 | [resource-management](./tables/34-resource-management.md) |
+
+### 35-40: 核心组件深度解析 (Core Components Deep Dive)
+
+| 编号 | 简称 | 表格 |
+|:---:|:---:|:---|
+| 35 | etcd详解 | [etcd-deep-dive](./tables/35-etcd-deep-dive.md) |
+| 36 | API Server | [kube-apiserver-deep-dive](./tables/36-kube-apiserver-deep-dive.md) |
+| 37 | KCM详解 | [kube-controller-manager-deep-dive](./tables/37-kube-controller-manager-deep-dive.md) |
+| 38 | CCM详解 | [cloud-controller-manager-deep-dive](./tables/38-cloud-controller-manager-deep-dive.md) |
+| 39 | Kubelet详解 | [kubelet-deep-dive](./tables/39-kubelet-deep-dive.md) |
+| 40 | kube-proxy | [kube-proxy-deep-dive](./tables/40-kube-proxy-deep-dive.md) |
+
+### 164-167: 调度与接口深度解析 (Scheduler & Interface Deep Dive)
+
+| 编号 | 简称 | 表格 |
+|:---:|:---:|:---|
+| 164 | Scheduler详解 | [kube-scheduler-deep-dive](./tables/164-kube-scheduler-deep-dive.md) |
+| 165 | CRI详解 | [cri-container-runtime-deep-dive](./tables/165-cri-container-runtime-deep-dive.md) |
+| 166 | CSI详解 | [csi-container-storage-deep-dive](./tables/166-csi-container-storage-deep-dive.md) |
+| 167 | CNI详解 | [cni-container-network-deep-dive](./tables/167-cni-container-network-deep-dive.md) |
 
 ### 41-72: 网络 (Networking)
 
@@ -306,6 +341,12 @@ Kusheet 是面向**生产环境**的 Kubernetes + AI Infrastructure 运维全域
 - [30-scheduler-configuration](./tables/30-scheduler-configuration.md)
 - [31-kubelet-configuration](./tables/31-kubelet-configuration.md)
 - [103-node-notready-diagnosis](./tables/103-node-notready-diagnosis.md)
+- [164-kube-scheduler-deep-dive](./tables/164-kube-scheduler-deep-dive.md)
+
+### 容器运行时接口 (CRI)
+- [26-container-runtime-interfaces](./tables/26-container-runtime-interfaces.md)
+- [27-runtime-class-configuration](./tables/27-runtime-class-configuration.md)
+- [165-cri-container-runtime-deep-dive](./tables/165-cri-container-runtime-deep-dive.md)
 
 ### 网络 (Networking)
 - [41-network-architecture-overview](./tables/41-network-architecture-overview.md)
@@ -323,6 +364,7 @@ Kusheet 是面向**生产环境**的 Kubernetes + AI Infrastructure 运维全域
 - [57-network-policy-advanced](./tables/57-network-policy-advanced.md)
 - [63-ingress-fundamentals](./tables/63-ingress-fundamentals.md)
 - [71-gateway-api-overview](./tables/71-gateway-api-overview.md)
+- [167-cni-container-network-deep-dive](./tables/167-cni-container-network-deep-dive.md)
 
 ### 存储 (Storage)
 - [73-storage-architecture-overview](./tables/73-storage-architecture-overview.md)
@@ -333,6 +375,7 @@ Kusheet 是面向**生产环境**的 Kubernetes + AI Infrastructure 运维全域
 - [78-storage-performance-tuning](./tables/78-storage-performance-tuning.md)
 - [79-pv-pvc-troubleshooting](./tables/79-pv-pvc-troubleshooting.md)
 - [80-storage-backup-disaster-recovery](./tables/80-storage-backup-disaster-recovery.md)
+- [166-csi-container-storage-deep-dive](./tables/166-csi-container-storage-deep-dive.md)
 
 ### 容器与工作负载 (Containers & Workloads)
 - [21-workload-controllers-overview](./tables/21-workload-controllers-overview.md)
@@ -424,6 +467,20 @@ Kusheet 是面向**生产环境**的 Kubernetes + AI Infrastructure 运维全域
 ## 变更记录 (Changelog)
 
 ### 2026-01 增强更新
+
+**核心组件深度解析系列** (35-40, 164):
+- 35-etcd-deep-dive: Raft共识、MVCC存储、集群配置、备份恢复、监控调优
+- 36-kube-apiserver-deep-dive: 认证授权、准入控制、APF限流、审计日志、高可用
+- 37-kube-controller-manager-deep-dive: 40+控制器详解、Leader选举、监控指标
+- 38-cloud-controller-manager-deep-dive: Node/Service/Route控制器、AWS/Azure/GCP/阿里云配置
+- 39-kubelet-deep-dive: Pod生命周期、PLEG、健康探测、cgroup管理、CRI接口
+- 40-kube-proxy-deep-dive: iptables/IPVS/nftables模式、负载均衡、性能调优
+- 164-kube-scheduler-deep-dive: 调度框架、插件系统、评分策略、抢占机制、高级调度
+
+**接口深度解析系列** (165-167):
+- 165-cri-container-runtime-deep-dive: Docker演进、containerd/CRI-O架构、runc/crun/youki、gVisor/Kata安全容器
+- 166-csi-container-storage-deep-dive: CSI规范、Sidecar组件、AWS EBS/阿里云/Ceph驱动、快照/克隆/扩展
+- 167-cni-container-network-deep-dive: CNI规范、Calico BGP/eBPF、Cilium eBPF、NetworkPolicy实现
 
 **AI/LLM系列增强** (142-152):
 - 142-llm-data-pipeline: 完整数据处理架构、tokenizer配置、质量评估
