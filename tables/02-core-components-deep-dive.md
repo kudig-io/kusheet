@@ -1,6 +1,26 @@
-# 02 - 核心组件表
+# Kubernetes 核心组件深度剖析 (Core Components Deep Dive)
 
 > **适用版本**: v1.25 - v1.32 | **最后更新**: 2026-01 | **参考**: [kubernetes.io/docs/concepts/overview/components](https://kubernetes.io/docs/concepts/overview/components/)
+
+## 目录
+
+1. [控制平面组件](#1-控制平面组件)
+   - [kube-apiserver 深度剖析](#11-kube-apiserver-深度剖析)
+   - [etcd 生产实践](#12-etcd-生产实践)
+   - [kube-scheduler 调度优化](#13-kube-scheduler-调度优化)
+   - [kube-controller-manager 控制器详解](#14-kube-controller-manager-控制器详解)
+   - [cloud-controller-manager 云集成](#15-cloud-controller-manager-云集成)
+2. [节点组件](#2-节点组件)
+   - [kubelet 运行机制](#21-kubelet-运行机制)
+   - [kube-proxy 网络代理](#22-kube-proxy-网络代理)
+   - [容器运行时对比](#23-容器运行时对比)
+3. [附加组件](#3-附加组件)
+4. [组件故障场景与恢复](#4-组件故障场景与恢复)
+5. [性能基准与容量规划](#5-性能基准与容量规划)
+6. [生产级配置模板](#6-生产级配置模板)
+7. [诊断与排查工具](#7-诊断与排查工具)
+
+---
 
 ## 控制平面组件
 
