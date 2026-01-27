@@ -1,6 +1,6 @@
 # Kusheet - Kubernetes 生产运维全域知识库
 
-> **适用版本**: Kubernetes v1.25 - v1.32 | **最后更新**: 2026-01 | **表格数量**: 167
+> **适用版本**: Kubernetes v1.25 - v1.32 | **最后更新**: 2026-01 | **表格数量**: 203
 
 ---
 
@@ -21,6 +21,10 @@
   - [域J: 扩展生态](#域j-扩展生态-extensions--ecosystem)
   - [域K: AI基础设施](#域k-ai基础设施-ai-infrastructure)
   - [域L: 故障排查](#域l-故障排查-troubleshooting)
+  - [域M: Docker基础](#域m-docker基础-docker-fundamentals)
+  - [域N: Linux基础](#域n-linux基础-linux-fundamentals)
+  - [域O: 网络基础](#域o-网络基础-network-fundamentals)
+  - [域P: 存储基础](#域p-存储基础-storage-fundamentals)
 - [多维度查询附录](#多维度查询附录)
   - [附录A: 开发者视角](#附录a-开发者视角)
   - [附录B: 运维工程师视角](#附录b-运维工程师视角)
@@ -71,6 +75,9 @@ Kusheet 是面向**生产环境**的 Kubernetes + AI Infrastructure 运维全域
 │  [域G] 安全合规    [域H] 可观测性   [域I] 平台运维                           │
 │     ↓                  ↓                 ↓                                  │
 │  [域J] 扩展生态    [域K] AI基础设施  [域L] 故障排查                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                          底层基础知识域                                      │
+│  [域M] Docker基础  [域N] Linux基础  [域O] 网络基础  [域P] 存储基础           │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -391,7 +398,7 @@ Kusheet 是面向**生产环境**的 Kubernetes + AI Infrastructure 运维全域
 
 ### 域K: AI基础设施 (AI Infrastructure)
 
-> 26 篇 | GPU调度、分布式训练、LLM服务、模型管理、成本优化
+> 35 篇 | GPU调度、分布式训练、LLM服务、模型管理、成本优化、云集成、专有云专题
 
 #### K1: AI平台基础
 
@@ -444,6 +451,25 @@ Kusheet 是面向**生产环境**的 Kubernetes + AI Infrastructure 运维全域
 | 153 | 成本优化 | [cost-optimization-overview](./tables/153-cost-optimization-overview.md) | 成本优化策略 |
 | 154 | Kubecost | [cost-management-kubecost](./tables/154-cost-management-kubecost.md) | FinOps实践 |
 
+#### K6: ACK 关联云服务
+
+| # | 简称 | 表格 | 关键内容 |
+|:---:|:---|:---|:---|
+| 240 | ECS计算 | [ack-ecs-compute](./tables/240-ack-ecs-compute.md) | 实例规格、节点池、Spot策略 |
+| 241 | 负载均衡 | [ack-slb-nlb-alb](./tables/241-ack-slb-nlb-alb.md) | CLB/NLB/ALB完整配置 |
+| 242 | VPC网络 | [ack-vpc-network](./tables/242-ack-vpc-network.md) | 网络规划、NAT、专线 |
+| 243 | RAM权限 | [ack-ram-authorization](./tables/243-ack-ram-authorization.md) | RRSA、权限矩阵、跨账号 |
+| 244 | ROS编排 | [ack-ros-iac](./tables/244-ack-ros-iac.md) | 资源模板、与Terraform对比 |
+| 245 | EBS存储 | [ack-ebs-storage](./tables/245-ack-ebs-storage.md) | ESSD性能、快照、加密 |
+
+#### K7: 专有云专题 (Apsara Stack)
+
+| # | 简称 | 表格 | 关键内容 |
+|:---:|:---|:---|:---|
+| 250 | 专有云ESS | [apsara-stack-ess-scaling](./tables/250-apsara-stack-ess-scaling.md) | 弹性架构、伸缩策略、ACK集成 |
+| 251 | 专有云SLS | [apsara-stack-sls-logging](./tables/251-apsara-stack-sls-logging.md) | 日志架构、审计集成、性能调优 |
+| 252 | 专有云POP | [apsara-stack-pop-operations](./tables/252-apsara-stack-pop-operations.md) | 平台运维、API接入、资源管理 |
+
 ---
 
 ### 域L: 故障排查 (Troubleshooting)
@@ -469,6 +495,69 @@ Kusheet 是面向**生产环境**的 Kubernetes + AI Infrastructure 运维全域
 | 161 | RBAC/Quota排障 | [rbac-quota-troubleshooting](./tables/161-rbac-quota-troubleshooting.md) | 权限配额问题 |
 | 162 | 证书排障 | [certificate-troubleshooting](./tables/162-certificate-troubleshooting.md) | 证书问题诊断 |
 | 163 | PVC排障 | [pvc-storage-troubleshooting](./tables/163-pvc-storage-troubleshooting.md) | 存储问题排查 |
+
+---
+
+### 域M: Docker基础 (Docker Fundamentals)
+
+> 8 篇 | Docker架构、镜像管理、容器生命周期、网络、存储、Compose、安全、故障排查
+
+| # | 简称 | 表格 | 关键内容 |
+|:---:|:---|:---|:---|
+| 200 | Docker架构 | [docker-architecture-overview](./tables/200-docker-architecture-overview.md) | Docker Engine、containerd、OCI标准 |
+| 201 | 镜像管理 | [docker-images-management](./tables/201-docker-images-management.md) | 镜像层、Dockerfile、多阶段构建、安全扫描 |
+| 202 | 容器生命周期 | [docker-container-lifecycle](./tables/202-docker-container-lifecycle.md) | 容器状态、资源限制、健康检查、日志 |
+| 203 | Docker网络 | [docker-networking-deep-dive](./tables/203-docker-networking-deep-dive.md) | 网络驱动、DNS、端口映射、网络排障 |
+| 204 | Docker存储 | [docker-storage-volumes](./tables/204-docker-storage-volumes.md) | 存储驱动、Volume、Bind Mount、备份 |
+| 205 | Compose | [docker-compose-orchestration](./tables/205-docker-compose-orchestration.md) | Compose配置、多环境、生产配置 |
+| 206 | Docker安全 | [docker-security-best-practices](./tables/206-docker-security-best-practices.md) | 镜像安全、运行时安全、Seccomp、能力 |
+| 207 | Docker排障 | [docker-troubleshooting-guide](./tables/207-docker-troubleshooting-guide.md) | 常见问题诊断、网络/存储排障 |
+
+---
+
+### 域N: Linux基础 (Linux Fundamentals)
+
+> 8 篇 | 系统架构、进程管理、文件系统、网络配置、存储管理、性能调优、安全加固、容器技术
+
+| # | 简称 | 表格 | 关键内容 |
+|:---:|:---|:---|:---|
+| 210 | Linux架构 | [linux-system-architecture](./tables/210-linux-system-architecture.md) | 内核架构、启动过程、systemd、内核调优 |
+| 211 | 进程管理 | [linux-process-management](./tables/211-linux-process-management.md) | 进程状态、信号、优先级、监控分析 |
+| 212 | 文件系统 | [linux-filesystem-deep-dive](./tables/212-linux-filesystem-deep-dive.md) | VFS、文件系统类型、权限、inode |
+| 213 | 网络配置 | [linux-networking-configuration](./tables/213-linux-networking-configuration.md) | ip/ss命令、路由、iptables、网络调优 |
+| 214 | 存储管理 | [linux-storage-management](./tables/214-linux-storage-management.md) | LVM、软件RAID、I/O调度、配额 |
+| 215 | 性能调优 | [linux-performance-tuning](./tables/215-linux-performance-tuning.md) | CPU/内存/I/O/网络分析、内核参数 |
+| 216 | 安全加固 | [linux-security-hardening](./tables/216-linux-security-hardening.md) | 用户管理、SSH、PAM、SELinux、审计 |
+| 217 | 容器技术 | [linux-container-fundamentals](./tables/217-linux-container-fundamentals.md) | Namespaces、Cgroups、OverlayFS、安全 |
+
+---
+
+### 域O: 网络基础 (Network Fundamentals)
+
+> 6 篇 | 协议栈、TCP/UDP、DNS、负载均衡、网络安全、SDN
+
+| # | 简称 | 表格 | 关键内容 |
+|:---:|:---|:---|:---|
+| 220 | 协议栈 | [network-protocols-stack](./tables/220-network-protocols-stack.md) | OSI/TCP-IP模型、数据封装、协议概览 |
+| 221 | TCP/UDP | [tcp-udp-deep-dive](./tables/221-tcp-udp-deep-dive.md) | 连接管理、流量控制、拥塞控制、对比 |
+| 222 | DNS | [dns-principles-configuration](./tables/222-dns-principles-configuration.md) | DNS解析、记录类型、配置、排障 |
+| 223 | 负载均衡 | [load-balancing-technologies](./tables/223-load-balancing-technologies.md) | 算法、L4/L7负载均衡、健康检查 |
+| 224 | 网络安全 | [network-security-fundamentals](./tables/224-network-security-fundamentals.md) | 攻击类型、防火墙、TLS、VPN |
+| 225 | SDN | [sdn-network-virtualization](./tables/225-sdn-network-virtualization.md) | SDN架构、Overlay、容器网络、服务网格 |
+
+---
+
+### 域P: 存储基础 (Storage Fundamentals)
+
+> 5 篇 | 存储技术、块/文件/对象存储、RAID、分布式存储、性能
+
+| # | 简称 | 表格 | 关键内容 |
+|:---:|:---|:---|:---|
+| 230 | 存储概述 | [storage-technologies-overview](./tables/230-storage-technologies-overview.md) | 存储类型、架构、协议、云存储 |
+| 231 | 存储类型 | [block-file-object-storage](./tables/231-block-file-object-storage.md) | 块存储、文件存储、对象存储对比 |
+| 232 | RAID | [raid-storage-redundancy](./tables/232-raid-storage-redundancy.md) | RAID级别、配置、监控、硬件/软件对比 |
+| 233 | 分布式存储 | [distributed-storage-systems](./tables/233-distributed-storage-systems.md) | Ceph、MinIO、GlusterFS |
+| 234 | 存储性能 | [storage-performance-iops](./tables/234-storage-performance-iops.md) | IOPS、吞吐量、延迟、测试优化 |
 
 ---
 
@@ -579,6 +668,14 @@ Kusheet 是面向**生产环境**的 Kubernetes + AI Infrastructure 运维全域
 ## 变更记录
 
 ### 2026-01 增强更新
+
+**底层基础知识域新增** (200-234):
+- 域M: Docker基础 (8篇): 架构概述、镜像管理、容器生命周期、网络详解、存储卷、Compose编排、安全最佳实践、故障排查
+- 域N: Linux基础 (8篇): 系统架构、进程管理、文件系统、网络配置、存储管理、性能调优、安全加固、容器技术(Namespaces/Cgroups)
+- 域O: 网络基础 (6篇): 协议栈(OSI/TCP-IP)、TCP/UDP详解、DNS原理配置、负载均衡技术、网络安全、SDN与网络虚拟化
+- 域P: 存储基础 (5篇): 存储技术概述、块/文件/对象存储、RAID配置、分布式存储(Ceph/MinIO/GlusterFS)、存储性能与IOPS
+- **阿里云 ACK 关联产品增强** (240-245): ECS 计算资源、SLB/NLB/ALB 负载均衡、VPC 网络规划、RAM 权限与 RRSA、ROS 资源编排、EBS 云盘存储
+- **专有云 (Apsara Stack) 专题** (250-252): ESS 弹性伸缩、SLS 日志服务、POP 平台运维 (ASOP)
 
 **核心组件深度解析系列** (35-40, 164):
 - 35-etcd-deep-dive: Raft共识、MVCC存储、集群配置、备份恢复、监控调优
