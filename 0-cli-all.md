@@ -1,4 +1,4 @@
-# Kubernetes & AI/ML 命令行清单 (Complete CLI Commands Reference)
+﻿# Kubernetes & AI/ML 命令行清单 (Complete CLI Commands Reference)
 
 ## 目录
 - [1. kubectl 基础命令](#1-kubectl-基础命令)
@@ -3022,3 +3022,71 @@ kubectl get nodes
 5. 学习高级运维和优化技术
 
 这份命令行清单旨在成为Kubernetes管理员和开发者的实用参考，随着技术的发展，将持续更新和完善。
+ 
+ # #   2 5 .   '`��R�gNEe���c�g�]wQ}T�N
+ 
+ 
+ 
+ # # #   2 5 . 1   I n s p e k t o r   G a d g e t   e B P F R�g�]wQ
+ 
+ 
+ 
+ `  a s h 
+ 
+ #   �[ň  k u b e c t l - g a d g e t   �c�N
+ 
+ k u b e c t l   k r e w   i n s t a l l   g a d g e t 
+ 
+ k u b e c t l   g a d g e t   d e p l o y 
+ 
+ 
+ 
+ #   �����[ň
+ 
+ k u b e c t l   g a d g e t   v e r s i o n 
+ 
+ k u b e c t l   g e t   p o d s   - n   g a d g e t 
+ 
+ 
+ 
+ #   �gw�S(u  G a d g e t s 
+ 
+ k u b e c t l   g a d g e t   l i s t - g a d g e t s 
+ 
+ ` 
+ 
+ 
+ 
+ # #   2 5 .   '`��R�gNEe���c�g�]wQ}T�N
+ 
+ 
+ 
+ # # #   2 5 . 1   I n s p e k t o r   G a d g e t   e B P F R�g�]wQ
+ 
+ 
+ 
+ `  a s h 
+ 
+ #   �[ň  k u b e c t l - g a d g e t   �c�N
+ 
+ k u b e c t l   k r e w   i n s t a l l   g a d g e t 
+ 
+ k u b e c t l   g a d g e t   d e p l o y 
+ 
+ 
+ 
+ #   �����[ň
+ 
+ k u b e c t l   g a d g e t   v e r s i o n 
+ 
+ k u b e c t l   g e t   p o d s   - n   g a d g e t 
+ 
+ 
+ 
+ #   �gw�S(u  G a d g e t s 
+ 
+ k u b e c t l   g a d g e t   l i s t - g a d g e t s 
+ 
+ ` 
+ 
+ 
