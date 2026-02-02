@@ -1,6 +1,6 @@
 # Kusheet - Kubernetes 生产运维全域知识库
 
-> **适用版本**: Kubernetes v1.25 - v1.32 | **最后更新**: 2026-01 | **表格数量**: 203
+> **适用版本**: Kubernetes v1.25 - v1.32 | **最后更新**: 2026-02 | **表格数量**: 203
 
 ---
 
@@ -9,7 +9,7 @@
 - [项目定位](#项目定位)
 - [快速导航(按角色)](#快速导航按角色)
 - [知识体系架构](#知识体系架构)
-- [演示文档(Presentations)](#演示文档presentations)
+- [演示文档(topic-presentations)](#演示文档topic-presentations)
   - [域A: 架构基础](#域a-架构基础-architecture-fundamentals)
   - [域B: 设计原理](#域b-设计原理-design-principles)
   - [域C: 控制平面](#域c-控制平面-control-plane)
@@ -553,6 +553,22 @@ Kusheet 是面向**生产环境**的 Kubernetes + AI Infrastructure 运维全域
 
 > 5 篇 | 存储技术、块/文件/对象存储、RAID、分布式存储、性能
 
+---
+
+## 实用工具
+
+> **维护工具**: 项目管理和验证脚本
+
+### 链接验证工具
+
+| 工具 | 位置 | 功能 |
+|:---|:---|:---|
+| **链接验证脚本** | [topic-dictionary/validate-links.ps1](./topic-dictionary/validate-links.ps1) | 验证README和演示文档中的链接有效性 |
+
+该PowerShell脚本可以帮助维护人员快速检查项目中所有文档链接的完整性，确保引用路径的准确性。
+
+---
+
 | # | 简称 | 表格 | 关键内容 |
 |:---:|:---|:---|:---|
 | 230 | 存储概述 | [storage-technologies-overview](./tables/230-storage-technologies-overview.md) | 存储类型、架构、协议、云存储 |
@@ -669,6 +685,24 @@ Kusheet 是面向**生产环境**的 Kubernetes + AI Infrastructure 运维全域
 
 ## 变更记录
 
+### 2026-02 目录结构优化
+
+**项目结构重组完成**:
+- ✅ 创建 `domain-q-cloud-provider` 统一管理所有云厂商文档
+- ✅ 将所有 `cloud-*` 目录移动到 `domain-q-cloud-provider/` 下
+- ✅ 重命名 `presentations` → `topic-presentations`
+- ✅ 重命名 `trouble-shooting` → `topic-trouble-shooting`
+- ✅ 更新 README 中所有相关链接
+- ✅ 验证所有链接有效性
+
+### 2026-02 根目录结构优化
+
+**项目结构重组完成**:
+- ✅ 根目录精简至仅保留 README.md
+- ✅ `validate-links.ps1` 脚本移至 `topic-dictionary/` 目录
+- ✅ 完善的分类目录结构：topic-dictionary、presentations、updates 等
+- ✅ 提升项目专业性和维护便利性
+
 ### 2026-01 增强更新
 
 **底层基础知识域新增** (200-234):
@@ -751,24 +785,24 @@ Kusheet 是面向**生产环境**的 Kubernetes + AI Infrastructure 运维全域
 
 | 云厂商 | 产品名称 | 目录 | 核心特性 | 特色内容 |
 |:---|:---|:---|:---|:---|
-| **Amazon** | EKS (Elastic Kubernetes Service) | [cloud-aws-eks/aws-eks-overview.md](./cloud-aws-eks/aws-eks-overview.md) | 托管控制平面、IAM集成、Fargate无服务器 | EKS Anywhere混合云、Bottlerocket OS、Karpenter智能调度 |
-| **Microsoft** | AKS (Azure Kubernetes Service) | [cloud-azure-aks/azure-aks-overview.md](./cloud-azure-aks/azure-aks-overview.md) | 免费控制平面、Azure AD集成、虚拟节点 | Azure Arc多云管理、Confidential Containers机密计算、Dapr集成 |
-| **Google** | GKE (Google Kubernetes Engine) | [cloud-google-cloud-gke/google-cloud-gke-overview.md](./cloud-google-cloud-gke/google-cloud-gke-overview.md) | Autopilot模式、智能优化、Anthos多云 | Borg技术传承、Autopilot无服务器、Anthos Service Mesh |
-| **Oracle** | OKE (Oracle Container Engine) | [cloud-oracle-oke/oracle-oke-overview.md](./cloud-oracle-oke/oracle-oke-overview.md) | OCI深度集成、裸金属节点、私有集群 | OCI原生集成、多云支持、企业级安全 |
-| **IBM** | IKS (IBM Cloud Kubernetes Service) | [cloud-ibm-iks/ibm-iks-overview.md](./cloud-ibm-iks/ibm-iks-overview.md) | 企业级安全、多云支持、裸金属节点 | 企业级合规、多云混合部署、IBM Cloud集成 |
+| **Amazon** | EKS (Elastic Kubernetes Service) | [cloud-aws-eks/aws-eks-overview.md](./domain-q-cloud-provider/cloud-aws-eks/aws-eks-overview.md) | 托管控制平面、IAM集成、Fargate无服务器 | EKS Anywhere混合云、Bottlerocket OS、Karpenter智能调度 |
+| **Microsoft** | AKS (Azure Kubernetes Service) | [cloud-azure-aks/azure-aks-overview.md](./domain-q-cloud-provider/cloud-azure-aks/azure-aks-overview.md) | 免费控制平面、Azure AD集成、虚拟节点 | Azure Arc多云管理、Confidential Containers机密计算、Dapr集成 |
+| **Google** | GKE (Google Kubernetes Engine) | [cloud-google-cloud-gke/google-cloud-gke-overview.md](./domain-q-cloud-provider/cloud-google-cloud-gke/google-cloud-gke-overview.md) | Autopilot模式、智能优化、Anthos多云 | Borg技术传承、Autopilot无服务器、Anthos Service Mesh |
+| **Oracle** | OKE (Oracle Container Engine) | [cloud-oracle-oke/oracle-oke-overview.md](./domain-q-cloud-provider/cloud-oracle-oke/oracle-oke-overview.md) | OCI深度集成、裸金属节点、私有集群 | OCI原生集成、多云支持、企业级安全 |
+| **IBM** | IKS (IBM Cloud Kubernetes Service) | [cloud-ibm-iks/ibm-iks-overview.md](./domain-q-cloud-provider/cloud-ibm-iks/ibm-iks-overview.md) | 企业级安全、多云支持、裸金属节点 | 企业级合规、多云混合部署、IBM Cloud集成 |
 
 ### 国内云厂商
 
 | 云厂商 | 产品名称 | 目录 | 核心特性 | 特色内容 |
 |:---|:---|:---|:---|:---|
-| **阿里云** | ACK (Container Service for Kubernetes) | [cloud-alicloud-ack/alicloud-ack-overview.md](./cloud-alicloud-ack/alicloud-ack-overview.md) | 托管版/专有版、Terway网络、RRSA认证 | Terway网络插件、RRSA身份联合、Serverless节点、双模式架构 |
-| **阿里云** | 专有云K8s | [cloud-alicloud-apsara-ack/250-apsara-stack-ess-scaling.md](./cloud-alicloud-apsara-ack/250-apsara-stack-ess-scaling.md) | 专有云环境、ESS伸缩、SLS日志 | 专有云定制、弹性伸缩、日志分析 |
-| **字节跳动** | VEK (Volcengine Kubernetes) | [cloud-volcengine-vek/volcengine-vek-overview.md](./cloud-volcengine-vek/volcengine-vek-overview.md) | 字节内部经验、高性能调度、智能运维 | 字节跳动技术沉淀、高性能CNI、智能调度算法 |
-| **腾讯云** | TKE (Tencent Kubernetes Engine) | [cloud-tencent-tke/tencent-tke-overview.md](./cloud-tencent-tke/tencent-tke-overview.md) | 万级节点、VPC-CNI、超级节点 | 腾讯内部实践、VPC网络优化、超级节点服务 |
-| **华为云** | CCE (Cloud Container Engine) | [cloud-huawei-cce/huawei-cce-overview.md](./cloud-huawei-cce/huawei-cce-overview.md) | GPU节点、ASM服务网格、裸金属 | 华为技术优势、GPU加速、服务网格集成 |
-| **天翼云** | TKE (Tianyi Cloud Kubernetes) | [cloud-ctyun-tke/ctyun-tke-overview.md](./cloud-ctyun-tke/ctyun-tke-overview.md) | 电信级SLA、5G融合、国产化支持 | 电信网络优势、5G融合、国产化适配 |
-| **移动云** | CKE (China Mobile Cloud K8s) | [cloud-ecloud-cke/ecloud-cke-overview.md](./cloud-ecloud-cke/ecloud-cke-overview.md) | 运营商网络优势、CDN集成、专属宿主机 | 移动网络集成、CDN优化、专属计算资源 |
-| **联通云** | UK8S (Unicom Cloud K8s) | [cloud-ucloud-uk8s/ucloud-uk8s-overview.md](./cloud-ucloud-uk8s/ucloud-uk8s-overview.md) | 联通网络支撑、5G切片、政企定制 | 联通网络基础、5G切片技术、政企解决方案 |
+| **阿里云** | ACK (Container Service for Kubernetes) | [cloud-alicloud-ack/alicloud-ack-overview.md](./domain-q-cloud-provider/cloud-alicloud-ack/alicloud-ack-overview.md) | 托管版/专有版、Terway网络、RRSA认证 | Terway网络插件、RRSA身份联合、Serverless节点、双模式架构 |
+| **阿里云** | 专有云K8s | [cloud-alicloud-apsara-ack/250-apsara-stack-ess-scaling.md](./domain-q-cloud-provider/cloud-alicloud-apsara-ack/250-apsara-stack-ess-scaling.md) | 专有云环境、ESS伸缩、SLS日志 | 专有云定制、弹性伸缩、日志分析 |
+| **字节跳动** | VEK (Volcengine Kubernetes) | [cloud-volcengine-vek/volcengine-vek-overview.md](./domain-q-cloud-provider/cloud-volcengine-vek/volcengine-vek-overview.md) | 字节内部经验、高性能调度、智能运维 | 字节跳动技术沉淀、高性能CNI、智能调度算法 |
+| **腾讯云** | TKE (Tencent Kubernetes Engine) | [cloud-tencent-tke/tencent-tke-overview.md](./domain-q-cloud-provider/cloud-tencent-tke/tencent-tke-overview.md) | 万级节点、VPC-CNI、超级节点 | 腾讯内部实践、VPC网络优化、超级节点服务 |
+| **华为云** | CCE (Cloud Container Engine) | [cloud-huawei-cce/huawei-cce-overview.md](./domain-q-cloud-provider/cloud-huawei-cce/huawei-cce-overview.md) | GPU节点、ASM服务网格、裸金属 | 华为技术优势、GPU加速、服务网格集成 |
+| **天翼云** | TKE (Tianyi Cloud Kubernetes) | [cloud-ctyun-tke/ctyun-tke-overview.md](./domain-q-cloud-provider/cloud-ctyun-tke/ctyun-tke-overview.md) | 电信级SLA、5G融合、国产化支持 | 电信网络优势、5G融合、国产化适配 |
+| **移动云** | CKE (China Mobile Cloud K8s) | [cloud-ecloud-cke/ecloud-cke-overview.md](./domain-q-cloud-provider/cloud-ecloud-cke/ecloud-cke-overview.md) | 运营商网络优势、CDN集成、专属宿主机 | 移动网络集成、CDN优化、专属计算资源 |
+| **联通云** | UK8S (Unicom Cloud K8s) | [cloud-ucloud-uk8s/ucloud-uk8s-overview.md](./domain-q-cloud-provider/cloud-ucloud-uk8s/ucloud-uk8s-overview.md) | 联通网络支撑、5G切片、政企定制 | 联通网络基础、5G切片技术、政企解决方案 |
 
 **特点**:
 - ✅ 系统化整理各厂商K8s产品信息
@@ -779,7 +813,7 @@ Kusheet 是面向**生产环境**的 Kubernetes + AI Infrastructure 运维全域
 
 ---
 
-## 演示文档(Presentations)
+## 演示文档(topic-presentations)
 
 > **适用环境**: 阿里云专有云、公共云 ACK 集群 | **目标读者**: DevOps 工程师、平台运维工程师
 
@@ -787,12 +821,12 @@ Kusheet 是面向**生产环境**的 Kubernetes + AI Infrastructure 运维全域
 
 | 主题 | 文档 | 关键内容 | 文件大小 |
 |:---|:---|:---|:---:|
-| **CoreDNS** | [kubernetes-coredns-presentation.md](./presentations/kubernetes-coredns-presentation.md) | 架构原理、Corefile配置、ACK优化、监控告警、性能调优、生产级部署 | 70.1KB |
-| **Ingress** | [kubernetes-ingress-presentation.md](./presentations/kubernetes-ingress-presentation.md) | 控制器选型、路由配置、TLS证书、阿里云集成、安全加固、故障排查 | 34.0KB |
-| **Service** | [kubernetes-service-presentation.md](./presentations/kubernetes-service-presentation.md) | Service类型详解、负载均衡、阿里云LB集成、网络策略、高可用配置 | 27.7KB |
-| **存储** | [kubernetes-storage-presentation.md](./presentations/kubernetes-storage-presentation.md) | PV/PVC架构、StorageClass、CSI驱动、阿里云存储、备份恢复 | 19.9KB |
-| **工作负载** | [kubernetes-workload-presentation.md](./presentations/kubernetes-workload-presentation.md) | Pod生命周期、控制器模式、调度策略、资源管理、自动扩缩容 | 25.5KB |
-| **Terway网络** | [kubernetes-terway-presentation.md](./presentations/kubernetes-terway-presentation.md) | Terway架构、网络模式、阿里云ACK集成、固定IP、安全组集成 | 25.3KB |
+| **CoreDNS** | [kubernetes-coredns-presentation.md](./topic-presentations/kubernetes-coredns-presentation.md) | 架构原理、Corefile配置、ACK优化、监控告警、性能调优、生产级部署 | 100.5KB |
+| **Ingress** | [kubernetes-ingress-presentation.md](./topic-presentations/kubernetes-ingress-presentation.md) | 控制器选型、路由配置、TLS证书、阿里云集成、安全加固、故障排查 | 69.3KB |
+| **Service** | [kubernetes-service-presentation.md](./topic-presentations/kubernetes-service-presentation.md) | Service类型详解、负载均衡、阿里云LB集成、网络策略、高可用配置 | 66.0KB |
+| **存储** | [kubernetes-storage-presentation.md](./topic-presentations/kubernetes-storage-presentation.md) | PV/PVC架构、StorageClass、CSI驱动、阿里云存储、备份恢复 | 82.4KB |
+| **工作负载** | [kubernetes-workload-presentation.md](./topic-presentations/kubernetes-workload-presentation.md) | Pod生命周期、控制器模式、调度策略、资源管理、自动扩缩容 | 100.3KB |
+| **Terway网络** | [kubernetes-terway-presentation.md](./topic-presentations/kubernetes-terway-presentation.md) | Terway架构、网络模式、阿里云ACK集成、固定IP、安全组集成 | 162.5KB |
 
 **特点**:
 - ✅ 系统化内容组织，无遗漏知识点

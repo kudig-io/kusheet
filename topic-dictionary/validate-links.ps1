@@ -3,12 +3,12 @@ Write-Host "=== README Link Validation ===" -ForegroundColor Green
 
 $files = @(
     "README.md",
-    "presentations/kubernetes-coredns-presentation.md",
-    "presentations/kubernetes-ingress-presentation.md",
-    "presentations/kubernetes-service-presentation.md", 
-    "presentations/kubernetes-storage-presentation.md",
-    "presentations/kubernetes-terway-presentation.md",
-    "presentations/kubernetes-workload-presentation.md"
+    "topic-presentations/kubernetes-coredns-presentation.md",
+    "topic-presentations/kubernetes-ingress-presentation.md",
+    "topic-presentations/kubernetes-service-presentation.md", 
+    "topic-presentations/kubernetes-storage-presentation.md",
+    "topic-presentations/kubernetes-terway-presentation.md",
+    "topic-presentations/kubernetes-workload-presentation.md"
 )
 
 $validCount = 0
