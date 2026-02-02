@@ -2202,6 +2202,932 @@ spec:
 
 ---
 
+# 第七章 CoreDNS 安全加固与合规
+
+## 7.1 网络安全策略配置
+
+### 7.1.1 CoreDNS NetworkPolicy
+
+```yaml
+# CoreDNS 完整网络策略
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: coredns-security
+  namespace: kube-system
+spec:
+  podSelector:
+    matchLabels:
+      k8s-app: kube-dns
+  policyTypes:
+  - Ingress
+  - Egress
+  
+  ingress:
+  # 允许所有 Pod 进行 DNS 查询
+  - from:
+    - namespaceSelector: {}
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  
+  # 允许 Prometheus 采集指标
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+      podSelector:
+        matchLabels:
+          app: prometheus
+    ports:
+    - protocol: TCP
+      port: 9153
+  
+  # 允许健康检查
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: TCP
+      port: 8080
+    - protocol: TCP
+      port: 8181
+  
+  egress:
+  # 允许访问 Kubernetes API Server
+  - to:
+    - ipBlock:
+        cidr: 10.96.0.1/32  # API Server ClusterIP
+    ports:
+    - protocol: TCP
+      port: 443
+  
+  # 允许访问阿里云公共 DNS
+  - to:
+    - ipBlock:
+        cidr: 223.5.5.5/32
+    - ipBlock:
+        cidr: 223.6.6.6/32
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  
+  # 允许访问 PrivateZone DNS
+  - to:
+    - ipBlock:
+        cidr: 100.100.2.136/32
+    - ipBlock:
+        cidr: 100.100.2.138/32
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+```
+
+### 7.1.2 限制 DNS 访问源
+
+```yaml
+# 限制特定命名空间访问 DNS
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dns-access-restriction
+  namespace: kube-system
+spec:
+  podSelector:
+    matchLabels:
+      k8s-app: kube-dns
+  policyTypes:
+  - Ingress
+  ingress:
+  # 只允许生产和预发环境
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          environment: production
+    - namespaceSelector:
+        matchLabels:
+          environment: staging
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+```
+
+## 7.2 访问控制与审计
+
+### 7.2.1 RBAC 最小权限配置
+
+```yaml
+# CoreDNS 最小权限 ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: system:coredns-minimal
+rules:
+# 只读访问 Service 和 Endpoint
+- apiGroups: [""]
+  resources: ["endpoints", "services", "pods", "namespaces"]
+  verbs: ["list", "watch"]
+  
+# EndpointSlice 只读访问
+- apiGroups: ["discovery.k8s.io"]
+  resources: ["endpointslices"]
+  verbs: ["list", "watch"]
+
+# 禁止以下操作
+# - 创建、更新、删除任何资源
+# - 访问 secrets、configmaps
+# - 访问 nodes、persistentvolumes
+```
+
+### 7.2.2 DNS 查询审计日志
+
+```corefile
+# 启用详细审计日志的 Corefile 配置
+.:53 {
+    errors
+    health {
+        lameduck 5s
+    }
+    ready
+    
+    # 审计日志配置
+    log . {
+        class all
+        # 详细日志格式 - 包含客户端信息
+        format "{remote}:{port} {type} {name} {rcode} {duration} {size}"
+    }
+    
+    kubernetes cluster.local in-addr.arpa ip6.arpa {
+        pods verified
+        fallthrough in-addr.arpa ip6.arpa
+        ttl 30
+    }
+    
+    # 审计特定域名
+    log internal.company.local {
+        class all
+        format "{remote} - [{time}] {type} {name} {rcode} {duration}"
+    }
+    
+    forward . 223.5.5.5 223.6.6.6
+    cache 30
+    loop
+    reload
+    loadbalance
+}
+```
+
+### 7.2.3 审计日志采集配置
+
+```yaml
+# Fluentd 采集 CoreDNS 审计日志
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluentd-coredns-config
+  namespace: logging
+data:
+  coredns.conf: |
+    <source>
+      @type tail
+      path /var/log/containers/coredns-*.log
+      pos_file /var/log/fluentd/coredns.pos
+      tag kubernetes.coredns
+      <parse>
+        @type json
+        time_key time
+        time_format %Y-%m-%dT%H:%M:%S.%NZ
+      </parse>
+    </source>
+    
+    <filter kubernetes.coredns>
+      @type parser
+      key_name log
+      reserve_data true
+      <parse>
+        @type regexp
+        expression /^(?<client_ip>[\d.]+):(?<client_port>\d+) (?<query_type>\w+) (?<query_name>[\w.]+) (?<response_code>\w+) (?<duration>[\d.]+)s (?<size>\d+)b$/
+      </parse>
+    </filter>
+    
+    <match kubernetes.coredns>
+      @type elasticsearch
+      host elasticsearch.logging.svc.cluster.local
+      port 9200
+      index_name coredns-audit
+      <buffer>
+        @type file
+        path /var/log/fluentd/buffer/coredns
+        flush_interval 10s
+      </buffer>
+    </match>
+```
+
+## 7.3 安全最佳实践
+
+### 7.3.1 安全加固检查清单
+
+```yaml
+# CoreDNS 安全加固检查清单
+security_checklist:
+  pod_security:
+    - check: "运行非 root 用户"
+      config: "securityContext.runAsNonRoot: true"
+      status: "必须"
+    
+    - check: "只读根文件系统"
+      config: "securityContext.readOnlyRootFilesystem: true"
+      status: "必须"
+    
+    - check: "禁止特权升级"
+      config: "securityContext.allowPrivilegeEscalation: false"
+      status: "必须"
+    
+    - check: "最小 Capabilities"
+      config: "capabilities.drop: ALL, add: NET_BIND_SERVICE"
+      status: "必须"
+    
+    - check: "Seccomp 配置"
+      config: "seccompProfile.type: RuntimeDefault"
+      status: "推荐"
+  
+  network_security:
+    - check: "NetworkPolicy 限制"
+      config: "限制 Ingress/Egress 流量"
+      status: "推荐"
+    
+    - check: "上游 DNS 白名单"
+      config: "只允许访问指定 DNS 服务器"
+      status: "推荐"
+    
+    - check: "禁止访问 Metadata"
+      config: "阻止访问 169.254.169.254"
+      status: "必须"
+  
+  configuration_security:
+    - check: "禁用不必要插件"
+      config: "只启用必需的插件"
+      status: "推荐"
+    
+    - check: "启用审计日志"
+      config: "log 插件配置"
+      status: "推荐"
+    
+    - check: "限制递归查询"
+      config: "配置查询限制"
+      status: "可选"
+```
+
+### 7.3.2 安全加固 Deployment 配置
+
+```yaml
+# 安全加固的 CoreDNS Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coredns
+  namespace: kube-system
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      k8s-app: kube-dns
+  template:
+    metadata:
+      labels:
+        k8s-app: kube-dns
+    spec:
+      priorityClassName: system-cluster-critical
+      serviceAccountName: coredns
+      
+      # Pod 级安全上下文
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      
+      containers:
+      - name: coredns
+        image: coredns/coredns:1.11.1
+        
+        # 容器级安全上下文
+        securityContext:
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          privileged: false
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - NET_BIND_SERVICE
+        
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        
+        # 健康检查
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 10
+        
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8181
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/coredns
+          readOnly: true
+        - name: tmp
+          mountPath: /tmp
+      
+      volumes:
+      - name: config-volume
+        configMap:
+          name: coredns
+      - name: tmp
+        emptyDir:
+          medium: Memory
+          sizeLimit: 10Mi
+```
+
+## 7.4 合规性配置
+
+### 7.4.1 等保合规配置
+
+```yaml
+# 等保三级合规 CoreDNS 配置
+compliance_config:
+  # 身份鉴别
+  identity:
+    - requirement: "服务账户认证"
+      implementation: "使用 ServiceAccount 进行 API 认证"
+      config: "serviceAccountName: coredns"
+  
+  # 访问控制
+  access_control:
+    - requirement: "最小权限原则"
+      implementation: "RBAC ClusterRole 仅包含必要权限"
+      config: "verbs: [list, watch]"
+    
+    - requirement: "网络访问控制"
+      implementation: "NetworkPolicy 限制入出流量"
+      config: "见 NetworkPolicy 配置"
+  
+  # 安全审计
+  audit:
+    - requirement: "审计日志"
+      implementation: "DNS 查询日志记录"
+      config: "log 插件配置"
+    
+    - requirement: "日志保留"
+      implementation: "日志保留 180 天"
+      config: "Elasticsearch 索引策略"
+  
+  # 入侵防范
+  intrusion_prevention:
+    - requirement: "限制资源访问"
+      implementation: "只读文件系统、非 root 运行"
+      config: "securityContext 配置"
+```
+
+---
+
+*第七章完 - 掌握了 CoreDNS 安全加固与合规配置*
+
+---
+
+# 第八章 大规模集群优化方案
+
+## 8.1 NodeLocal DNSCache 部署
+
+### 8.1.1 架构原理
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     NodeLocal DNSCache 架构                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  传统架构 (无 NodeLocal DNS):                                                │
+│  ┌────────────────────────────────────────────────────────────────────┐    │
+│  │  Pod ──DNS查询──→ kube-dns Service ──→ CoreDNS Pod                │    │
+│  │                    (跨节点流量)         (可能在其他节点)             │    │
+│  └────────────────────────────────────────────────────────────────────┘    │
+│                                                                             │
+│  NodeLocal DNSCache 架构:                                                   │
+│  ┌────────────────────────────────────────────────────────────────────┐    │
+│  │                                                                    │    │
+│  │  Node-1                           Node-2                           │    │
+│  │  ┌─────────────────────────┐     ┌─────────────────────────┐      │    │
+│  │  │  Pod-A                  │     │  Pod-B                  │      │    │
+│  │  │  resolv.conf:           │     │  resolv.conf:           │      │    │
+│  │  │  nameserver 169.254.20.10│    │  nameserver 169.254.20.10│     │    │
+│  │  └──────────┬──────────────┘     └──────────┬──────────────┘      │    │
+│  │             │ 本地查询                       │ 本地查询             │    │
+│  │             ▼                               ▼                      │    │
+│  │  ┌──────────────────────┐       ┌──────────────────────┐          │    │
+│  │  │  NodeLocal DNS       │       │  NodeLocal DNS       │          │    │
+│  │  │  (DaemonSet)         │       │  (DaemonSet)         │          │    │
+│  │  │  169.254.20.10:53    │       │  169.254.20.10:53    │          │    │
+│  │  │  本地缓存 + 转发      │       │  本地缓存 + 转发      │          │    │
+│  │  └──────────┬───────────┘       └──────────┬───────────┘          │    │
+│  │             │ 缓存未命中时                   │                      │    │
+│  │             ▼                               ▼                      │    │
+│  │  ┌────────────────────────────────────────────────────────────┐   │    │
+│  │  │              CoreDNS (kube-dns Service)                    │   │    │
+│  │  │              集群级 DNS 解析                                │   │    │
+│  │  └────────────────────────────────────────────────────────────┘   │    │
+│  │                                                                    │    │
+│  └────────────────────────────────────────────────────────────────────┘    │
+│                                                                             │
+│  优势:                                                                       │
+│  ├─ 减少跨节点 DNS 流量                                                     │
+│  ├─ 降低 CoreDNS 负载                                                       │
+│  ├─ 提升 DNS 查询性能 (本地缓存)                                            │
+│  └─ 避免 conntrack 竞争问题                                                 │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 8.1.2 NodeLocal DNSCache 部署
+
+```yaml
+# NodeLocal DNSCache DaemonSet
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-local-dns
+  namespace: kube-system
+  labels:
+    k8s-app: node-local-dns
+spec:
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 10%
+  selector:
+    matchLabels:
+      k8s-app: node-local-dns
+  template:
+    metadata:
+      labels:
+        k8s-app: node-local-dns
+    spec:
+      priorityClassName: system-node-critical
+      serviceAccountName: node-local-dns
+      hostNetwork: true
+      dnsPolicy: Default
+      
+      tolerations:
+      - key: "CriticalAddonsOnly"
+        operator: "Exists"
+      - effect: "NoExecute"
+        operator: "Exists"
+      - effect: "NoSchedule"
+        operator: "Exists"
+      
+      containers:
+      - name: node-cache
+        image: registry.cn-hangzhou.aliyuncs.com/acs/k8s-dns-node-cache:1.22.28
+        resources:
+          requests:
+            cpu: 25m
+            memory: 50Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+        
+        args:
+        - -localip
+        - "169.254.20.10,10.96.0.10"
+        - -conf
+        - /etc/Corefile
+        - -upstreamsvc
+        - kube-dns-upstream
+        - -health-port
+        - "8080"
+        
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+        
+        ports:
+        - containerPort: 53
+          name: dns
+          protocol: UDP
+        - containerPort: 53
+          name: dns-tcp
+          protocol: TCP
+        - containerPort: 9253
+          name: metrics
+          protocol: TCP
+        
+        livenessProbe:
+          httpGet:
+            host: 169.254.20.10
+            path: /health
+            port: 8080
+          initialDelaySeconds: 60
+          timeoutSeconds: 5
+        
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/Corefile
+          subPath: Corefile.base
+        - name: xtables-lock
+          mountPath: /run/xtables.lock
+          readOnly: false
+      
+      volumes:
+      - name: config-volume
+        configMap:
+          name: node-local-dns
+      - name: xtables-lock
+        hostPath:
+          path: /run/xtables.lock
+          type: FileOrCreate
+---
+# NodeLocal DNS ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: node-local-dns
+  namespace: kube-system
+data:
+  Corefile.base: |
+    cluster.local:53 {
+        errors
+        cache {
+            success 9984 30
+            denial 9984 5
+        }
+        reload
+        loop
+        bind 169.254.20.10 10.96.0.10
+        forward . __PILLAR__CLUSTER__DNS__ {
+            force_tcp
+        }
+        prometheus :9253
+        health 169.254.20.10:8080
+    }
+    in-addr.arpa:53 {
+        errors
+        cache 30
+        reload
+        loop
+        bind 169.254.20.10 10.96.0.10
+        forward . __PILLAR__CLUSTER__DNS__ {
+            force_tcp
+        }
+        prometheus :9253
+    }
+    ip6.arpa:53 {
+        errors
+        cache 30
+        reload
+        loop
+        bind 169.254.20.10 10.96.0.10
+        forward . __PILLAR__CLUSTER__DNS__ {
+            force_tcp
+        }
+        prometheus :9253
+    }
+    .:53 {
+        errors
+        cache 30
+        reload
+        loop
+        bind 169.254.20.10 10.96.0.10
+        forward . __PILLAR__UPSTREAM__SERVERS__
+        prometheus :9253
+    }
+```
+
+## 8.2 自动扩缩容配置
+
+### 8.2.1 基于节点数的扩缩容
+
+```yaml
+# Cluster Proportional Autoscaler
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dns-autoscaler
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: dns-autoscaler
+  template:
+    metadata:
+      labels:
+        k8s-app: dns-autoscaler
+    spec:
+      serviceAccountName: dns-autoscaler
+      containers:
+      - name: autoscaler
+        image: registry.cn-hangzhou.aliyuncs.com/acs/cluster-proportional-autoscaler:1.8.9
+        resources:
+          requests:
+            cpu: 20m
+            memory: 10Mi
+          limits:
+            cpu: 100m
+            memory: 50Mi
+        command:
+        - /cluster-proportional-autoscaler
+        - --namespace=kube-system
+        - --configmap=dns-autoscaler
+        - --target=deployment/coredns
+        - --default-params={"linear":{"coresPerReplica":256,"nodesPerReplica":16,"min":2,"max":10,"preventSinglePointFailure":true}}
+        - --logtostderr=true
+        - --v=2
+---
+# DNS Autoscaler ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dns-autoscaler
+  namespace: kube-system
+data:
+  linear: |
+    {
+      "coresPerReplica": 256,
+      "nodesPerReplica": 16,
+      "min": 2,
+      "max": 10,
+      "preventSinglePointFailure": true,
+      "includeUnschedulableNodes": true
+    }
+```
+
+### 8.2.2 基于指标的 HPA
+
+```yaml
+# CoreDNS HPA 配置
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: coredns-hpa
+  namespace: kube-system
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: coredns
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  # CPU 利用率
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 60
+  
+  # 内存利用率
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 70
+  
+  # 自定义指标 - DNS QPS
+  - type: Pods
+    pods:
+      metric:
+        name: coredns_dns_requests_per_second
+      target:
+        type: AverageValue
+        averageValue: "1000"
+  
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Pods
+        value: 2
+        periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 120
+```
+
+## 8.3 多集群 DNS 联邦
+
+### 8.3.1 跨集群 DNS 架构
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        多集群 DNS 联邦架构                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  Cluster-A (cn-hangzhou)          Cluster-B (cn-shanghai)                   │
+│  ┌─────────────────────────┐      ┌─────────────────────────┐               │
+│  │  CoreDNS                │      │  CoreDNS                │               │
+│  │  cluster-a.local        │◀────▶│  cluster-b.local        │               │
+│  │                         │      │                         │               │
+│  │  Services:              │      │  Services:              │               │
+│  │  ├─ api.default         │      │  ├─ api.default         │               │
+│  │  ├─ web.frontend        │      │  ├─ web.frontend        │               │
+│  │  └─ db.backend          │      │  └─ db.backend          │               │
+│  └─────────────────────────┘      └─────────────────────────┘               │
+│              │                                │                              │
+│              └────────────┬───────────────────┘                              │
+│                           │                                                  │
+│                           ▼                                                  │
+│              ┌─────────────────────────┐                                     │
+│              │   Global DNS (可选)     │                                     │
+│              │   或 PrivateZone        │                                     │
+│              │                         │                                     │
+│              │  跨集群服务发现:        │                                     │
+│              │  api.cluster-a.global   │                                     │
+│              │  api.cluster-b.global   │                                     │
+│              └─────────────────────────┘                                     │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 8.3.2 跨集群 DNS 配置
+
+```corefile
+# Cluster-A CoreDNS 配置
+.:53 {
+    errors
+    health
+    ready
+    
+    # 本集群服务发现
+    kubernetes cluster-a.local in-addr.arpa ip6.arpa {
+        pods insecure
+        fallthrough in-addr.arpa ip6.arpa
+        ttl 30
+    }
+    
+    # 转发 cluster-b 域名到对端集群
+    forward cluster-b.local 10.200.0.10 {
+        max_concurrent 50
+        health_check 10s
+    }
+    
+    # 转发全局域名到 PrivateZone
+    forward global.company.local 100.100.2.136 100.100.2.138 {
+        max_concurrent 100
+        health_check 10s
+    }
+    
+    # 默认上游 DNS
+    forward . 223.5.5.5 223.6.6.6 {
+        max_concurrent 1000
+        health_check 5s
+    }
+    
+    prometheus :9153
+    cache 30
+    loop
+    reload
+    loadbalance
+}
+```
+
+## 8.4 大规模集群优化实践
+
+### 8.4.1 优化配置矩阵
+
+| 集群规模 | CoreDNS 副本数 | 资源配置 | 缓存配置 | NodeLocal DNS |
+|----------|----------------|----------|----------|---------------|
+| < 100 节点 | 2-3 | 100m/128Mi | 默认 | 可选 |
+| 100-500 节点 | 3-5 | 200m/256Mi | 优化 | 推荐 |
+| 500-1000 节点 | 5-8 | 500m/512Mi | 大容量 | 必须 |
+| > 1000 节点 | 8+ | 1000m/1Gi | 超大容量 | 必须 |
+
+### 8.4.2 大规模 Corefile 优化
+
+```corefile
+# 大规模集群优化 Corefile
+.:53 {
+    errors
+    health {
+        lameduck 5s
+    }
+    ready
+    
+    # 优化 Kubernetes 插件
+    kubernetes cluster.local in-addr.arpa ip6.arpa {
+        pods verified           # 验证 Pod 存在
+        fallthrough in-addr.arpa ip6.arpa
+        ttl 60                  # 延长 TTL
+        resyncperiod 30s        # 同步周期
+    }
+    
+    prometheus :9153
+    
+    # 大容量缓存配置
+    cache {
+        success 50000 3600 600   # 5万条，1小时 TTL
+        denial 5000 300 60       # 否定缓存
+        prefetch 100 1h 20%      # 积极预取
+        serve_stale 4h           # 故障时使用过期缓存
+    }
+    
+    # 优化上游 DNS
+    forward . 223.5.5.5 223.6.6.6 {
+        max_concurrent 3000      # 高并发
+        max_fails 2              # 快速故障切换
+        health_check 2s          # 快速健康检查
+        expire 5s                # 连接过期
+        policy round_robin
+    }
+    
+    loop
+    reload 5s
+    loadbalance round_robin
+}
+```
+
+### 8.4.3 性能调优检查清单
+
+```yaml
+# 大规模集群性能调优检查清单
+performance_checklist:
+  infrastructure:
+    - item: "CoreDNS 副本数"
+      check: "根据节点数自动扩缩"
+      target: "nodes/16 个副本"
+    
+    - item: "NodeLocal DNSCache"
+      check: "所有节点部署"
+      target: "DaemonSet 100% 覆盖"
+    
+    - item: "资源配置"
+      check: "根据负载调整"
+      target: "CPU < 80%, Memory < 80%"
+  
+  configuration:
+    - item: "缓存命中率"
+      check: "监控 cache_hits/cache_misses"
+      target: "> 70%"
+    
+    - item: "TTL 设置"
+      check: "kubernetes 和 cache 插件 TTL"
+      target: ">= 30s"
+    
+    - item: "预取配置"
+      check: "cache prefetch 设置"
+      target: "启用 20% 预取"
+  
+  monitoring:
+    - item: "延迟监控"
+      check: "P99 延迟"
+      target: "< 10ms"
+    
+    - item: "错误率"
+      check: "SERVFAIL 比例"
+      target: "< 0.1%"
+    
+    - item: "QPS 监控"
+      check: "每秒查询数"
+      target: "根据业务基线"
+```
+
+---
+
+*第八章完 - 掌握了 CoreDNS 大规模集群优化方案*
+
+---
+
 # 第九章 CoreDNS 生产级部署与运维实践
 
 ## 9.1 标准部署配置模板
@@ -2652,3 +3578,77 @@ echo "紧急恢复流程完成!"
 ---
 
 *第九章完 - 掌握了CoreDNS生产级部署和运维实践技能*
+
+---
+
+## 附录 A: 常用命令速查表
+
+```bash
+# CoreDNS 状态检查
+kubectl get pods -n kube-system -l k8s-app=kube-dns -o wide
+kubectl logs -n kube-system -l k8s-app=kube-dns --tail=100
+
+# DNS 解析测试
+kubectl run dns-test --rm -it --image=busybox:1.36 -- nslookup kubernetes.default
+kubectl run dns-test --rm -it --image=nicolaka/netshoot -- dig @10.96.0.10 kubernetes.default.svc.cluster.local
+
+# 配置管理
+kubectl get configmap coredns -n kube-system -o yaml
+kubectl edit configmap coredns -n kube-system
+kubectl rollout restart deployment/coredns -n kube-system
+
+# 监控指标
+kubectl exec -n kube-system deploy/coredns -- wget -qO- http://localhost:9153/metrics
+kubectl port-forward -n kube-system svc/kube-dns 9153:9153
+
+# 性能测试
+kubectl run perf-test --rm -it --image=nicolaka/netshoot -- \
+  bash -c 'for i in $(seq 1 100); do dig @10.96.0.10 kubernetes.default +short; done'
+
+# NodeLocal DNS 检查
+kubectl get pods -n kube-system -l k8s-app=node-local-dns
+kubectl logs -n kube-system -l k8s-app=node-local-dns --tail=50
+```
+
+## 附录 B: 配置模板索引
+
+| 模板名称 | 适用场景 | 章节位置 |
+|----------|----------|----------|
+| 标准 Corefile | 基础生产环境 | 3.1 节 |
+| 存根域配置 | 企业内部 DNS | 3.3.1 节 |
+| PrivateZone 集成 | 阿里云环境 | 4.2 节 |
+| 安全加固配置 | 合规要求 | 7.3.2 节 |
+| NodeLocal DNS | 大规模集群 | 8.1.2 节 |
+| 多集群 DNS | 跨集群通信 | 8.3.2 节 |
+
+## 附录 C: 故障排查索引
+
+| 故障现象 | 可能原因 | 排查方法 | 章节位置 |
+|----------|----------|----------|----------|
+| DNS 解析超时 | Pod/网络异常 | 检查 Pod 状态 | 6.1 节 |
+| NXDOMAIN | Service 不存在 | kubectl get svc | 6.1 节 |
+| SERVFAIL | 配置错误 | 检查日志 | 6.3.3 节 |
+| 缓存命中率低 | TTL 过短 | 调整缓存配置 | 6.3.2 节 |
+| 高延迟 | 资源不足 | 扩容或优化 | 6.2 节 |
+
+## 附录 D: 监控指标参考
+
+| 指标名称 | 类型 | 说明 | 告警阈值 |
+|----------|------|------|----------|
+| `coredns_dns_requests_total` | Counter | DNS 请求总数 | - |
+| `coredns_dns_request_duration_seconds` | Histogram | 请求延迟 | P99 > 100ms |
+| `coredns_cache_hits_total` | Counter | 缓存命中 | 命中率 < 50% |
+| `coredns_dns_responses_total{rcode="SERVFAIL"}` | Counter | SERVFAIL 响应 | 比例 > 1% |
+| `coredns_forward_requests_total` | Counter | 转发请求数 | - |
+| `coredns_panic_count_total` | Counter | Panic 次数 | > 0 |
+
+---
+
+**文档版本**: v2.0  
+**更新日期**: 2026年1月  
+**作者**: Kusheet Project  
+**联系方式**: Allen Galler (allengaller@gmail.com)
+
+---
+
+*全文完 - Kubernetes CoreDNS 从入门到实战*

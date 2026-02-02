@@ -1,1285 +1,2210 @@
-# Ingress ACK 补充技术文档
+# Kubernetes Ingress流量入口生产环境运维培训
 
-> **文档类型**: 技术补充资料 | **适用环境**: 阿里云专有云 & 公共云 | **重点产品**: ACK  
+> **适用版本**: Kubernetes v1.26-v1.32  
+> **文档类型**: PPT演示文稿 | **目标受众**: 运维工程师、SRE、架构师  
+> **内容定位**: 理论深入 + 源码级分析 + 生产实战案例
 
 ---
 
 ## 目录
 
-1. [负载均衡器选择策略](#1-负载均衡器选择策略)
-2. [安全加固实践](#2-安全加固实践)
-3. [监控告警配置](#3-监控告警配置)
-4. [故障排查手册](#4-故障排查手册)
-5. [性能调优指南](#5-性能调优指南)
-6. [多环境管理](#6-多环境管理)
+1. [Ingress核心概念与架构](#1-ingress核心概念与架构)
+2. [Ingress控制器深度对比](#2-ingress控制器深度对比)
+3. [Ingress资源配置详解](#3-ingress资源配置详解)
+4. [TLS证书管理](#4-tls证书管理)
+5. [高级流量管理](#5-高级流量管理)
+6. [性能优化实践](#6-性能优化实践)
+7. [监控与告警](#7-监控与告警)
+8. [故障排查手册](#8-故障排查手册)
+9. [安全加固配置](#9-安全加固配置)
+10. [实战案例演练](#10-实战案例演练)
+11. [总结与Q&A](#11-总结与qa)
 
 ---
 
-## 1. 负载均衡器选择策略
+## 1. Ingress核心概念与架构
 
-### 1.1 产品对比矩阵
-
-| 特性 | CLB (传统型) | NLB (网络型) | ALB (应用型) |
-|------|-------------|-------------|-------------|
-| **工作层级** | 四层 (TCP/UDP) | 四层 (TCP/UDP) | 七层 (HTTP/HTTPS) |
-| **性能规格** | 固定规格 | 弹性按需 | 弹性按需 |
-| **最大连接数** | 100万 | 1亿+ | 100万+ |
-| **新建连接数** | 10万 CPS | 100万+ CPS | 10万+ CPS |
-| **SSL卸载** | 支持 | 不支持 | 原生支持 |
-| **HTTP路由** | 不支持 | 不支持 | 丰富路由功能 |
-| **WebSocket** | 有限支持 | 支持 | 原生支持 |
-| **gRPC** | 有限支持 | 支持 | 原生支持 |
-| **成本模式** | 包年包月/按量 | 按量付费 | 按量付费 |
-| **适用场景** | 简单TCP负载 | 高并发游戏/直播 | Web应用/API网关 |
-
-### 1.2 选型决策流程
+### 1.1 Ingress架构全景
 
 ```
-开始
-  │
-  ├─→ 是否需要HTTP/HTTPS高级功能？
-  │      │
-  │      ├─ 是 → 选择 ALB
-  │      │
-  │      └─ 否 ↓
-  │
-  ├─→ 是否需要超高并发性能？
-  │      │
-  │      ├─ 是 → 选择 NLB
-  │      │
-  │      └─ 否 ↓
-  │
-  ├─→ 是否有预算限制？
-  │      │
-  │      ├─ 是 → 选择 CLB (包年包月)
-  │      │
-  │      └─ 否 ↓
-  │
-  └─→ 默认选择 → ALB (功能最全面)
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    Kubernetes Ingress 架构全景                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  互联网用户                                                                  │
+│       │                                                                     │
+│       ▼                                                                     │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                    云负载均衡器 (SLB/ELB/ALB)                        │   │
+│  │                    外部IP: 203.0.113.100                            │   │
+│  └──────────────────────────────┬──────────────────────────────────────┘   │
+│                                 │                                           │
+│                                 ▼                                           │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                    Ingress Controller                                │   │
+│  │  ┌─────────────────────────────────────────────────────────────┐   │   │
+│  │  │  Nginx / ALB / Traefik / HAProxy / Istio Gateway            │   │   │
+│  │  │                                                             │   │   │
+│  │  │  功能:                                                      │   │   │
+│  │  │  • 监听Ingress资源变化                                      │   │   │
+│  │  │  • 动态生成反向代理配置                                      │   │   │
+│  │  │  • SSL/TLS终结                                              │   │   │
+│  │  │  • 基于Host/Path的路由                                      │   │   │
+│  │  │  • 负载均衡                                                 │   │   │
+│  │  │  • 限流、熔断、重试                                         │   │   │
+│  │  └─────────────────────────────────────────────────────────────┘   │   │
+│  └──────────────────────────────┬──────────────────────────────────────┘   │
+│                                 │                                           │
+│                                 │ 基于Ingress规则路由                        │
+│                                 │                                           │
+│          ┌──────────────────────┼──────────────────────┐                   │
+│          │                      │                      │                    │
+│          ▼                      ▼                      ▼                    │
+│  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐         │
+│  │ Service: api     │  │ Service: web     │  │ Service: admin   │         │
+│  │ api.example.com  │  │ www.example.com  │  │ admin.example.com│         │
+│  │ /api/*           │  │ /                │  │ /                │         │
+│  └────────┬─────────┘  └────────┬─────────┘  └────────┬─────────┘         │
+│           │                     │                     │                    │
+│           ▼                     ▼                     ▼                    │
+│  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐         │
+│  │    Pod Group     │  │    Pod Group     │  │    Pod Group     │         │
+│  │    (API服务)     │  │    (Web前端)     │  │    (管理后台)    │         │
+│  └──────────────────┘  └──────────────────┘  └──────────────────┘         │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 1.3 典型应用场景配置
+### 1.2 Ingress vs LoadBalancer Service
 
-#### 游戏服务器负载均衡 (NLB)
+| 特性 | Ingress | LoadBalancer Service |
+|------|---------|---------------------|
+| **协议支持** | HTTP/HTTPS (L7) | TCP/UDP (L4) |
+| **路由能力** | Host/Path路由 | 仅端口映射 |
+| **SSL终结** | 支持，统一管理 | 需要每个Service单独配置 |
+| **IP消耗** | 一个IP多个服务 | 每个Service一个IP |
+| **成本** | 低 | 高 |
+| **灵活性** | 高 | 低 |
+| **配置复杂度** | 中 | 低 |
+| **适用场景** | Web应用、API | 非HTTP服务 |
+
+### 1.3 Ingress工作流程
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    Ingress 请求处理流程                                   │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  1. 资源创建阶段                                                         │
+│     ┌─────────────────────────────────────────────────────────────┐    │
+│     │ 用户创建Ingress → API Server存储 → Controller Watch到变更   │    │
+│     │            → Controller读取Ingress规则                      │    │
+│     │            → 生成/更新代理配置(nginx.conf等)                 │    │
+│     │            → 热重载配置生效                                 │    │
+│     └─────────────────────────────────────────────────────────────┘    │
+│                                                                         │
+│  2. 请求处理阶段                                                         │
+│     ┌─────────────────────────────────────────────────────────────┐    │
+│     │ 客户端请求 → DNS解析 → 到达LoadBalancer/NodePort            │    │
+│     │          → Ingress Controller接收                           │    │
+│     │          → 匹配Host头 → 匹配Path → 选择后端Service          │    │
+│     │          → 负载均衡选择Pod → 转发请求                       │    │
+│     │          → Pod响应 → Controller返回给客户端                 │    │
+│     └─────────────────────────────────────────────────────────────┘    │
+│                                                                         │
+│  3. TLS处理 (如果配置了HTTPS)                                            │
+│     ┌─────────────────────────────────────────────────────────────┐    │
+│     │ 客户端HTTPS请求 → Controller进行TLS握手                     │    │
+│     │                 → 证书验证 → 解密请求                       │    │
+│     │                 → HTTP请求转发到后端 (通常是明文HTTP)       │    │
+│     │                 → 后端响应 → 加密响应返回客户端             │    │
+│     └─────────────────────────────────────────────────────────────┘    │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### 1.4 版本演进
+
+| 版本 | 重要特性 | 说明 |
+|------|---------|------|
+| **v1.18** | networking.k8s.io/v1beta1 | Ingress进入Beta |
+| **v1.19** | IngressClass引入 | 支持多Ingress Controller |
+| **v1.22** | networking.k8s.io/v1 GA | Ingress正式稳定 |
+| **v1.26** | 后端协议注解标准化 | appProtocol支持 |
+| **v1.28** | Gateway API成熟 | 下一代Ingress |
+| **v1.30** | Ingress性能优化 | 大规模集群支持 |
+
+---
+
+## 2. Ingress控制器深度对比
+
+### 2.1 主流控制器对比矩阵
+
+| 特性 | Nginx Ingress | ALB Ingress | Traefik | HAProxy | Istio Gateway |
+|------|--------------|-------------|---------|---------|---------------|
+| **性能** | 高 | 极高(云原生) | 中高 | 高 | 中 |
+| **配置复杂度** | 中 | 低 | 低 | 高 | 高 |
+| **功能丰富度** | 高 | 中 | 高 | 中 | 极高 |
+| **社区活跃度** | 极高 | 高(云厂商) | 高 | 中 | 极高 |
+| **热更新** | 支持 | 原生 | 原生 | 支持 | 原生 |
+| **金丝雀发布** | 注解支持 | 原生 | 原生 | 有限 | 原生 |
+| **WAF集成** | ModSecurity | 云WAF | 插件 | 有限 | 无 |
+| **监控集成** | Prometheus | 云监控 | 内置 | 内置 | Prometheus |
+| **适用场景** | 通用 | 阿里云/AWS | K8s原生 | 高性能 | 服务网格 |
+
+### 2.2 Nginx Ingress Controller
+
 ```yaml
-# 高并发游戏服务器配置
-apiVersion: v1
-kind: Service
+# Nginx Ingress Controller部署
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: game-server-nlb
-  annotations:
-    service.beta.kubernetes.io/alibaba-cloud-loadbalancer-type: "nlb"
-    service.beta.kubernetes.io/alibaba-cloud-loadbalancer-spec: "nlb.s1.small"
-    service.beta.kubernetes.io/alibaba-cloud-loadbalancer-zone-mapping: |
-      [
-        {"ZoneId": "cn-hangzhou-a", "VSwitchId": "vsw-game-a"},
-        {"ZoneId": "cn-hangzhou-b", "VSwitchId": "vsw-game-b"}
-      ]
-    # 高性能网络配置
-    service.beta.kubernetes.io/alibaba-cloud-loadbalancer-health-check-connect-timeout: "1"
-    service.beta.kubernetes.io/alibaba-cloud-loadbalancer-health-check-interval: "1"
+  name: ingress-nginx-controller
+  namespace: ingress-nginx
 spec:
+  replicas: 3
   selector:
-    app: game-server
-  ports:
-  - name: game-tcp
-    port: 7777
-    targetPort: 7777
-    protocol: TCP
-  type: LoadBalancer
+    matchLabels:
+      app.kubernetes.io/name: ingress-nginx
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ingress-nginx
+    spec:
+      serviceAccountName: ingress-nginx
+      
+      # 反亲和性 - 跨节点分布
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: ingress-nginx
+              topologyKey: kubernetes.io/hostname
+      
+      containers:
+      - name: controller
+        image: registry.k8s.io/ingress-nginx/controller:v1.9.4
+        args:
+        - /nginx-ingress-controller
+        - --publish-service=$(POD_NAMESPACE)/ingress-nginx-controller
+        - --election-id=ingress-nginx-leader
+        - --controller-class=k8s.io/ingress-nginx
+        - --ingress-class=nginx
+        - --configmap=$(POD_NAMESPACE)/ingress-nginx-controller
+        - --validating-webhook=:8443
+        - --validating-webhook-certificate=/usr/local/certificates/cert
+        - --validating-webhook-key=/usr/local/certificates/key
+        
+        # 性能优化参数
+        - --enable-metrics=true
+        - --metrics-per-host=false
+        - --default-backend-service=$(POD_NAMESPACE)/default-backend
+        
+        ports:
+        - name: http
+          containerPort: 80
+          protocol: TCP
+        - name: https
+          containerPort: 443
+          protocol: TCP
+        - name: metrics
+          containerPort: 10254
+          protocol: TCP
+        - name: webhook
+          containerPort: 8443
+          protocol: TCP
+        
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+        
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 10254
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 10254
+          initialDelaySeconds: 10
+          periodSeconds: 10
+
+---
+# Nginx配置ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ingress-nginx-controller
+  namespace: ingress-nginx
+data:
+  # 代理配置
+  proxy-body-size: "100m"
+  proxy-connect-timeout: "60"
+  proxy-read-timeout: "60"
+  proxy-send-timeout: "60"
+  
+  # 缓冲配置
+  proxy-buffer-size: "128k"
+  proxy-buffers-number: "4"
+  
+  # 连接配置
+  worker-processes: "auto"
+  worker-connections: "65536"
+  keep-alive: "75"
+  keep-alive-requests: "1000"
+  
+  # 日志配置
+  log-format-upstream: '$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" $request_length $request_time [$proxy_upstream_name] [$proxy_alternative_upstream_name] $upstream_addr $upstream_response_length $upstream_response_time $upstream_status $req_id'
+  
+  # 限流配置
+  limit-req-status-code: "429"
+  limit-conn-status-code: "429"
+  
+  # SSL配置
+  ssl-protocols: "TLSv1.2 TLSv1.3"
+  ssl-ciphers: "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256"
+  ssl-prefer-server-ciphers: "true"
+  
+  # 安全配置
+  hide-headers: "X-Powered-By,Server"
+  server-tokens: "false"
+  
+  # 性能优化
+  use-gzip: "true"
+  gzip-types: "application/json application/javascript text/css text/plain"
+  enable-brotli: "true"
 ```
 
-#### Web应用负载均衡 (ALB)
+### 2.3 阿里云ALB Ingress Controller
+
 ```yaml
-# 现代Web应用配置
+# ALB Ingress Controller (阿里云ACK专用)
+apiVersion: alibabacloud.com/v1
+kind: AlbConfig
+metadata:
+  name: default
+spec:
+  config:
+    # ALB实例配置
+    name: "k8s-alb"
+    addressType: Internet        # Internet | Intranet
+    zoneMappings:
+    - vSwitchId: vsw-xxx
+      zoneId: cn-hangzhou-a
+    - vSwitchId: vsw-yyy
+      zoneId: cn-hangzhou-b
+    
+    # 访问日志
+    accessLogConfig:
+      logProject: "k8s-logs"
+      logStore: "alb-access-log"
+    
+    # 带宽配置
+    billingConfig:
+      bandwidthPackageId: ""
+      internetChargeType: PayByTraffic
+    
+    # 删除保护
+    deletionProtectionConfig:
+      enabled: true
+
+---
+# ALB Ingress示例
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: web-app-alb
+  name: alb-ingress
+  namespace: production
   annotations:
+    # 使用ALB Ingress Class
     kubernetes.io/ingress.class: alb
+    
+    # ALB特有注解
     alb.ingress.kubernetes.io/address-type: internet
-    alb.ingress.kubernetes.io/vswitch-ids: "vsw-web-a,vsw-web-b"
-    # HTTP/2 支持
-    alb.ingress.kubernetes.io/http2-enabled: "true"
-    # WebSocket 支持
-    alb.ingress.kubernetes.io/websocket-enabled: "true"
-    # 压缩支持
-    alb.ingress.kubernetes.io/compression-enabled: "true"
+    alb.ingress.kubernetes.io/vswitch-ids: "vsw-xxx,vsw-yyy"
+    
+    # 健康检查
+    alb.ingress.kubernetes.io/healthcheck-enabled: "true"
+    alb.ingress.kubernetes.io/healthcheck-path: "/health"
+    alb.ingress.kubernetes.io/healthcheck-protocol: "HTTP"
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "5"
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: "3"
+    
+    # 会话保持
+    alb.ingress.kubernetes.io/sticky-session: "true"
+    alb.ingress.kubernetes.io/sticky-session-type: "insert"
+    alb.ingress.kubernetes.io/cookie-timeout: "1800"
+    
+    # 限流
+    alb.ingress.kubernetes.io/traffic-limit-qps: "1000"
+    
+    # 重定向
+    alb.ingress.kubernetes.io/ssl-redirect: "true"
+    
+    # 金丝雀发布
+    alb.ingress.kubernetes.io/canary: "true"
+    alb.ingress.kubernetes.io/canary-weight: "20"
 spec:
+  ingressClassName: alb
   tls:
   - hosts:
-    - app.example.com
-    secretName: app-tls
+    - api.example.com
+    secretName: api-tls-secret
   rules:
-  - host: app.example.com
+  - host: api.example.com
     http:
       paths:
-      - path: /api
+      - path: /
         pathType: Prefix
         backend:
           service:
             name: api-service
             port:
-              number: 8080
-      - path: /ws
+              number: 80
+```
+
+### 2.4 Traefik Ingress Controller
+
+```yaml
+# Traefik部署 (Helm values)
+# helm install traefik traefik/traefik --namespace traefik --create-namespace -f values.yaml
+
+# values.yaml
+deployment:
+  replicas: 3
+
+# 入口点配置
+ports:
+  web:
+    port: 80
+    exposedPort: 80
+    protocol: TCP
+  websecure:
+    port: 443
+    exposedPort: 443
+    protocol: TCP
+    tls:
+      enabled: true
+
+# 日志配置
+logs:
+  general:
+    level: INFO
+  access:
+    enabled: true
+    format: json
+
+# 监控配置
+metrics:
+  prometheus:
+    enabled: true
+    entryPoint: metrics
+
+# 中间件
+additionalArguments:
+- "--providers.kubernetescrd"
+- "--providers.kubernetesingress"
+- "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+- "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+
+---
+# Traefik IngressRoute (CRD方式)
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: api-route
+  namespace: production
+spec:
+  entryPoints:
+  - websecure
+  routes:
+  - match: Host(`api.example.com`) && PathPrefix(`/v1`)
+    kind: Rule
+    services:
+    - name: api-v1
+      port: 80
+      weight: 80
+    - name: api-v2
+      port: 80
+      weight: 20  # 金丝雀发布
+    middlewares:
+    - name: rate-limit
+    - name: secure-headers
+  - match: Host(`api.example.com`) && PathPrefix(`/v2`)
+    kind: Rule
+    services:
+    - name: api-v2
+      port: 80
+  tls:
+    secretName: api-tls-secret
+
+---
+# 限流中间件
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: rate-limit
+  namespace: production
+spec:
+  rateLimit:
+    average: 100
+    burst: 200
+    period: 1s
+    sourceCriterion:
+      ipStrategy:
+        depth: 1
+
+---
+# 安全头中间件
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: secure-headers
+  namespace: production
+spec:
+  headers:
+    stsSeconds: 31536000
+    stsIncludeSubdomains: true
+    stsPreload: true
+    forceSTSHeader: true
+    contentTypeNosniff: true
+    browserXssFilter: true
+    customFrameOptionsValue: "SAMEORIGIN"
+```
+
+---
+
+## 3. Ingress资源配置详解
+
+### 3.1 基础Ingress配置
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: production-ingress
+  namespace: production
+  labels:
+    app: production
+    environment: prod
+  annotations:
+    # Nginx Ingress特有注解
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    
+spec:
+  # Ingress类 - 指定使用哪个Controller
+  ingressClassName: nginx
+  
+  # TLS配置
+  tls:
+  - hosts:
+    - api.example.com
+    - www.example.com
+    secretName: example-tls-secret
+  - hosts:
+    - admin.example.com
+    secretName: admin-tls-secret
+  
+  # 路由规则
+  rules:
+  # API服务
+  - host: api.example.com
+    http:
+      paths:
+      - path: /v1
         pathType: Prefix
         backend:
           service:
-            name: websocket-service
+            name: api-v1
             port:
-              number: 8080
+              number: 80
+      - path: /v2
+        pathType: Prefix
+        backend:
+          service:
+            name: api-v2
+            port:
+              number: 80
+  
+  # Web前端
+  - host: www.example.com
+    http:
+      paths:
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: frontend-service
+            name: web-frontend
+            port:
+              number: 80
+      - path: /static
+        pathType: Prefix
+        backend:
+          service:
+            name: static-files
+            port:
+              number: 80
+  
+  # 管理后台
+  - host: admin.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: admin-panel
+            port:
+              number: 80
+  
+  # 默认后端 (可选)
+  defaultBackend:
+    service:
+      name: default-backend
+      port:
+        number: 80
+```
+
+### 3.2 Path类型详解
+
+```yaml
+# pathType: Exact - 精确匹配
+# /foo 匹配 /foo
+# /foo 不匹配 /foo/
+# /foo 不匹配 /foo/bar
+
+# pathType: Prefix - 前缀匹配
+# /foo 匹配 /foo, /foo/, /foo/bar
+# / 匹配所有路径
+
+# pathType: ImplementationSpecific - 由Controller决定
+# 行为取决于具体的Ingress Controller实现
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: path-type-demo
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: example.com
+    http:
+      paths:
+      # 精确匹配 /api
+      - path: /api
+        pathType: Exact
+        backend:
+          service:
+            name: api-exact
+            port:
+              number: 80
+      
+      # 前缀匹配 /api/v1
+      - path: /api/v1
+        pathType: Prefix
+        backend:
+          service:
+            name: api-v1
+            port:
+              number: 80
+      
+      # 前缀匹配 /api/v2 (优先级高于 /api)
+      - path: /api/v2
+        pathType: Prefix
+        backend:
+          service:
+            name: api-v2
+            port:
+              number: 80
+      
+      # 默认匹配
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: default-service
             port:
               number: 80
 ```
 
-#### 混合负载均衡架构
+### 3.3 Nginx Ingress高级注解
+
 ```yaml
-# 同时使用多种负载均衡器的混合架构
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: advanced-ingress
+  annotations:
+    # === 路由与重写 ===
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/app-root: "/index.html"
+    
+    # === 代理配置 ===
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
+    nginx.ingress.kubernetes.io/proxy-buffers-number: "4"
+    
+    # === SSL/TLS ===
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/ssl-passthrough: "false"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"  # HTTP|HTTPS|GRPC|GRPCS
+    
+    # === 负载均衡 ===
+    nginx.ingress.kubernetes.io/upstream-hash-by: "$request_uri"
+    nginx.ingress.kubernetes.io/load-balance: "round_robin"  # round_robin|least_conn|ip_hash
+    
+    # === 会话亲和 ===
+    nginx.ingress.kubernetes.io/affinity: "cookie"
+    nginx.ingress.kubernetes.io/affinity-mode: "balanced"
+    nginx.ingress.kubernetes.io/session-cookie-name: "SERVERID"
+    nginx.ingress.kubernetes.io/session-cookie-max-age: "3600"
+    nginx.ingress.kubernetes.io/session-cookie-path: "/"
+    nginx.ingress.kubernetes.io/session-cookie-samesite: "Strict"
+    nginx.ingress.kubernetes.io/session-cookie-secure: "true"
+    
+    # === 限流 ===
+    nginx.ingress.kubernetes.io/limit-rps: "100"
+    nginx.ingress.kubernetes.io/limit-connections: "50"
+    nginx.ingress.kubernetes.io/limit-rate: "1m"
+    nginx.ingress.kubernetes.io/limit-rate-after: "10m"
+    nginx.ingress.kubernetes.io/limit-whitelist: "10.0.0.0/8,192.168.0.0/16"
+    
+    # === CORS ===
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://example.com"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "Content-Type, Authorization"
+    nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
+    nginx.ingress.kubernetes.io/cors-max-age: "86400"
+    
+    # === 安全 ===
+    nginx.ingress.kubernetes.io/whitelist-source-range: "10.0.0.0/8"
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: basic-auth
+    nginx.ingress.kubernetes.io/auth-realm: "Authentication Required"
+    
+    # === 自定义配置 ===
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Request-Id: $request_id";
+      more_set_headers "X-Response-Time: $request_time";
+    nginx.ingress.kubernetes.io/server-snippet: |
+      location /nginx-status {
+        stub_status on;
+        allow 10.0.0.0/8;
+        deny all;
+      }
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: api.example.com
+    http:
+      paths:
+      - path: /api(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 80
+```
+
 ---
-# 内部服务使用NLB (高性能)
+
+## 4. TLS证书管理
+
+### 4.1 手动证书配置
+
+```yaml
+# 创建TLS Secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: example-tls-secret
+  namespace: production
+type: kubernetes.io/tls
+data:
+  # base64编码的证书和私钥
+  tls.crt: LS0tLS1CRUdJTi... # base64 encoded certificate
+  tls.key: LS0tLS1CRUdJTi... # base64 encoded private key
+
+---
+# 使用证书的Ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tls-ingress
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - api.example.com
+    - www.example.com
+    secretName: example-tls-secret
+  rules:
+  - host: api.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 80
+```
+
+### 4.2 cert-manager自动证书
+
+```yaml
+# 安装cert-manager
+# kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.0/cert-manager.yaml
+
+# Let's Encrypt ClusterIssuer (生产环境)
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: admin@example.com
+    privateKeySecretRef:
+      name: letsencrypt-prod-account-key
+    solvers:
+    # HTTP-01 验证
+    - http01:
+        ingress:
+          class: nginx
+    # DNS-01 验证 (支持通配符)
+    - dns01:
+        cloudflare:
+          email: admin@example.com
+          apiTokenSecretRef:
+            name: cloudflare-api-token
+            key: api-token
+      selector:
+        dnsZones:
+        - "example.com"
+
+---
+# Let's Encrypt ClusterIssuer (测试环境)
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+spec:
+  acme:
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    email: admin@example.com
+    privateKeySecretRef:
+      name: letsencrypt-staging-account-key
+    solvers:
+    - http01:
+        ingress:
+          class: nginx
+
+---
+# Certificate资源
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: example-cert
+  namespace: production
+spec:
+  secretName: example-tls-secret
+  duration: 2160h    # 90天
+  renewBefore: 360h  # 提前15天续期
+  
+  subject:
+    organizations:
+    - Example Inc.
+  
+  commonName: example.com
+  dnsNames:
+  - example.com
+  - www.example.com
+  - api.example.com
+  - "*.example.com"  # 通配符需要DNS-01验证
+  
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+    group: cert-manager.io
+
+---
+# 使用注解自动申请证书的Ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: auto-tls-ingress
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - api.example.com
+    secretName: api-example-tls  # cert-manager会自动创建此Secret
+  rules:
+  - host: api.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 80
+```
+
+### 4.3 阿里云证书管理
+
+```yaml
+# 阿里云ACK证书管理
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aliyun-cert-ingress
+  annotations:
+    # 使用阿里云SSL证书
+    nginx.ingress.kubernetes.io/ssl-certificate-id: "xxx-yyy-zzz"
+    
+    # 或使用云解析证书
+    service.beta.kubernetes.io/alibaba-cloud-loadbalancer-cert-id: "xxx-yyy-zzz"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - api.example.com
+    # 不需要指定secretName，使用阿里云证书
+  rules:
+  - host: api.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 80
+```
+
+---
+
+## 5. 高级流量管理
+
+### 5.1 金丝雀发布 (Canary)
+
+```yaml
+# 主版本Ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: production-ingress
+  namespace: production
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: api.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: api-stable
+            port:
+              number: 80
+
+---
+# 金丝雀版本Ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: canary-ingress
+  namespace: production
+  annotations:
+    nginx.ingress.kubernetes.io/canary: "true"
+    
+    # 方式1: 按权重分流 (10%流量到金丝雀)
+    nginx.ingress.kubernetes.io/canary-weight: "10"
+    
+    # 方式2: 按Header分流
+    # nginx.ingress.kubernetes.io/canary-by-header: "X-Canary"
+    # nginx.ingress.kubernetes.io/canary-by-header-value: "true"
+    
+    # 方式3: 按Cookie分流
+    # nginx.ingress.kubernetes.io/canary-by-cookie: "canary"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: api.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: api-canary
+            port:
+              number: 80
+
+---
+# 金丝雀发布脚本
+# canary-deploy.sh
+#!/bin/bash
+
+# 阶段1: 10%流量
+kubectl patch ingress canary-ingress -n production \
+  -p '{"metadata":{"annotations":{"nginx.ingress.kubernetes.io/canary-weight":"10"}}}'
+echo "金丝雀流量: 10%"
+sleep 300  # 观察5分钟
+
+# 阶段2: 30%流量
+kubectl patch ingress canary-ingress -n production \
+  -p '{"metadata":{"annotations":{"nginx.ingress.kubernetes.io/canary-weight":"30"}}}'
+echo "金丝雀流量: 30%"
+sleep 300
+
+# 阶段3: 50%流量
+kubectl patch ingress canary-ingress -n production \
+  -p '{"metadata":{"annotations":{"nginx.ingress.kubernetes.io/canary-weight":"50"}}}'
+echo "金丝雀流量: 50%"
+sleep 300
+
+# 阶段4: 全量切换
+# 将stable服务指向新版本，删除金丝雀Ingress
+kubectl set image deployment/api-stable api=api:v2 -n production
+kubectl delete ingress canary-ingress -n production
+echo "全量发布完成"
+```
+
+### 5.2 蓝绿发布
+
+```yaml
+# 蓝色环境 (当前生产)
 apiVersion: v1
 kind: Service
 metadata:
-  name: internal-nlb
-  annotations:
-    service.beta.kubernetes.io/alibaba-cloud-loadbalancer-type: "nlb"
+  name: api-blue
+  namespace: production
 spec:
   selector:
-    app: internal-service
+    app: api
+    version: blue
   ports:
   - port: 80
     targetPort: 8080
-  type: LoadBalancer
 
 ---
-# 外部Web服务使用ALB (功能丰富)
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: external-alb
-  annotations:
-    kubernetes.io/ingress.class: alb
-spec:
-  tls:
-  - hosts:
-    - web.example.com
-    secretName: web-tls
-  rules:
-  - host: web.example.com
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: web-service
-            port:
-              number: 80
-```
-
----
-
-## 2. 安全加固实践
-
-### 2.1 网络层面安全
-
-#### 安全组精细化配置
-```yaml
-# 生产环境安全组配置
+# 绿色环境 (新版本)
 apiVersion: v1
 kind: Service
 metadata:
-  name: secure-service
-  annotations:
-    # 绑定专用安全组
-    service.beta.kubernetes.io/alibaba-cloud-loadbalancer-security-group-id: "sg-prod-web"
-    
-    # 访问控制列表
-    service.beta.kubernetes.io/alibaba-cloud-loadbalancer-access-control-enable: "on"
-    service.beta.kubernetes.io/alibaba-cloud-loadbalancer-access-control-type: "white"
-    service.beta.kubernetes.io/alibaba-cloud-loadbalancer-access-control-list: |
-      192.168.0.0/16,  # 内部网络
-      10.0.0.0/8,      # VPC网络
-      203.0.113.0/24   # 办公网络
-    
-    # 删除保护
-    service.beta.kubernetes.io/alibaba-cloud-loadbalancer-delete-protection: "on"
-    service.beta.kubernetes.io/alibaba-cloud-loadbalancer-modification-protection: "ConsoleProtection"
-spec:
-  selector:
-    app: secure-app
-  ports:
-  - port: 443
-    targetPort: 8443
-  type: LoadBalancer
-```
-
-#### NetworkPolicy 网络策略
-```yaml
-# 严格的网络隔离策略
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: ingress-isolation-policy
+  name: api-green
   namespace: production
 spec:
-  podSelector:
-    matchLabels:
-      app: web-app
-  policyTypes:
-  - Ingress
-  - Egress
-  
-  # 入站规则 - 仅允许必要的流量
-  ingress:
-  # 允许来自负载均衡器的流量
-  - from:
-    - namespaceSelector: {}
-      podSelector:
-        matchLabels:
-          component: load-balancer
-    ports:
-    - protocol: TCP
-      port: 80
-    - protocol: TCP
-      port: 443
-  
-  # 允许来自监控系统的流量
-  - from:
-    - namespaceSelector:
-        matchLabels:
-          name: monitoring
-    ports:
-    - protocol: TCP
-      port: 8080  # metrics端口
-  
-  # 允许来自内部服务的流量
-  - from:
-    - namespaceSelector:
-        matchLabels:
-          environment: production
-      podSelector:
-        matchLabels:
-          tier: backend
-    ports:
-    - protocol: TCP
-      port: 8080
-  
-  # 出站规则 - 限制对外访问
-  egress:
-  # 允许访问数据库
-  - to:
-    - namespaceSelector:
-        matchLabels:
-          name: database
-    ports:
-    - protocol: TCP
-      port: 3306
-    - protocol: TCP
-      port: 5432
-  
-  # 允许访问缓存服务
-  - to:
-    - namespaceSelector:
-        matchLabels:
-          name: cache
-    ports:
-    - protocol: TCP
-      port: 6379
-    - protocol: TCP
-      port: 11211
-  
-  # 允许DNS查询
-  - to:
-    - namespaceSelector:
-        matchLabels:
-          name: kube-system
-      podSelector:
-        matchLabels:
-          k8s-app: kube-dns
-    ports:
-    - protocol: UDP
-      port: 53
-    - protocol: TCP
-      port: 53
-```
+  selector:
+    app: api
+    version: green
+  ports:
+  - port: 80
+    targetPort: 8080
 
-### 2.2 应用层面安全
+---
+# 流量切换Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-active
+  namespace: production
+spec:
+  selector:
+    app: api
+    version: blue  # 切换时改为green
+  ports:
+  - port: 80
+    targetPort: 8080
 
-#### WAF集成配置
-```yaml
-# 集成阿里云WAF的安全配置
+---
+# Ingress指向active Service
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: waf-secured-ingress
-  annotations:
-    # 基础安全配置
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
-    
-    # 安全响应头
-    nginx.ingress.kubernetes.io/configuration-snippet: |
-      # 防点击劫持
-      add_header X-Frame-Options "DENY" always;
-      
-      # 防MIME类型嗅探
-      add_header X-Content-Type-Options "nosniff" always;
-      
-      # XSS防护
-      add_header X-XSS-Protection "1; mode=block" always;
-      
-      # 强制HTTPS
-      add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
-      
-      # 内容安全策略
-      add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;" always;
-      
-      # 防信息泄露
-      proxy_hide_header Server;
-      proxy_hide_header X-Powered-By;
-      
-      # 请求大小限制
-      client_max_body_size 10m;
-      
-      # 速率限制配置
-      limit_req_zone $binary_remote_addr zone=login:10m rate=10r/m;
-      limit_req_zone $binary_remote_addr zone=api:10m rate=1000r/m;
-      limit_req_zone $binary_remote_addr zone=general:10m rate=100r/s;
-      
-      # 登录接口保护
-      location /api/login {
-        limit_req zone=login burst=5 nodelay;
-        proxy_pass http://auth-service;
-      }
-      
-      # API接口保护
-      location /api/ {
-        limit_req zone=api burst=100 nodelay;
-        proxy_pass http://api-service;
-      }
-      
-      # 通用保护
-      location / {
-        limit_req zone=general burst=20 nodelay;
-        proxy_pass http://web-service;
-      }
+  name: api-ingress
 spec:
   ingressClassName: nginx
-  tls:
-  - hosts:
-    - app.example.com
-    secretName: app-tls
   rules:
-  - host: app.example.com
+  - host: api.example.com
     http:
       paths:
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: app-service
+            name: api-active
             port:
               number: 80
+
+---
+# 蓝绿切换脚本
+# blue-green-switch.sh
+#!/bin/bash
+
+NAMESPACE="production"
+CURRENT=$(kubectl get svc api-active -n $NAMESPACE -o jsonpath='{.spec.selector.version}')
+
+if [ "$CURRENT" == "blue" ]; then
+    NEW_VERSION="green"
+else
+    NEW_VERSION="blue"
+fi
+
+echo "切换: $CURRENT -> $NEW_VERSION"
+
+# 检查新版本Pod就绪
+kubectl rollout status deployment/api-$NEW_VERSION -n $NAMESPACE
+
+# 执行切换
+kubectl patch svc api-active -n $NAMESPACE \
+  -p "{\"spec\":{\"selector\":{\"app\":\"api\",\"version\":\"$NEW_VERSION\"}}}"
+
+echo "切换完成，当前版本: $NEW_VERSION"
 ```
 
-#### OAuth2 认证集成
+### 5.3 A/B测试
+
 ```yaml
-# 外部认证服务集成
+# 基于Header的A/B测试
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: oauth2-protected-ingress
+  name: ab-test-a
   annotations:
-    # 外部认证配置
-    nginx.ingress.kubernetes.io/auth-url: "http://oauth2-proxy.auth-system.svc.cluster.local/oauth2/auth"
-    nginx.ingress.kubernetes.io/auth-signin: "https://auth.example.com/oauth2/start?rd=$scheme://$host$request_uri"
-    nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-User,X-Auth-Request-Email,X-Auth-Request-Groups"
-    
-    # 认证缓存
-    nginx.ingress.kubernetes.io/auth-cache-key: "$cookie_oauth2_proxy"
-    nginx.ingress.kubernetes.io/auth-cache-duration: "200 202 10m, 401 5m"
-    
-    # 强制认证
-    nginx.ingress.kubernetes.io/auth-always-set-cookie: "true"
-    
-    # 跳过认证的路径
-    nginx.ingress.kubernetes.io/auth-snippet: |
-      location /api/public {
-        auth_request off;
-        proxy_pass http://api-service;
-      }
-      location /health {
-        auth_request off;
-        proxy_pass http://health-service;
-      }
+    nginx.ingress.kubernetes.io/canary: "true"
+    nginx.ingress.kubernetes.io/canary-by-header: "X-AB-Test"
+    nginx.ingress.kubernetes.io/canary-by-header-value: "variant-a"
 spec:
   ingressClassName: nginx
-  tls:
-  - hosts:
-    - app.example.com
-    secretName: app-tls
   rules:
-  - host: app.example.com
+  - host: api.example.com
     http:
       paths:
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: protected-app
+            name: api-variant-a
             port:
               number: 80
-```
 
-### 2.3 数据传输安全
-
-#### mTLS 双向认证
-```yaml
-# mTLS配置示例
+---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: mtls-ingress
+  name: ab-test-b
   annotations:
-    # 启用客户端证书验证
-    nginx.ingress.kubernetes.io/auth-tls-secret: "default/client-ca-secret"
-    nginx.ingress.kubernetes.io/auth-tls-verify-client: "on"
-    nginx.ingress.kubernetes.io/auth-tls-verify-depth: "2"
-    nginx.ingress.kubernetes.io/auth-tls-pass-certificate-to-upstream: "true"
-    
-    # 后端TLS验证
-    nginx.ingress.kubernetes.io/proxy-ssl-secret: "default/backend-tls"
-    nginx.ingress.kubernetes.io/proxy-ssl-verify: "on"
-    nginx.ingress.kubernetes.io/proxy-ssl-verify-depth: "2"
+    nginx.ingress.kubernetes.io/canary: "true"
+    nginx.ingress.kubernetes.io/canary-by-header: "X-AB-Test"
+    nginx.ingress.kubernetes.io/canary-by-header-value: "variant-b"
 spec:
   ingressClassName: nginx
-  tls:
-  - hosts:
-    - secure.example.com
-    secretName: server-tls
   rules:
-  - host: secure.example.com
+  - host: api.example.com
     http:
       paths:
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: secure-service
+            name: api-variant-b
             port:
-              number: 443
+              number: 80
 ```
 
 ---
 
-## 3. 监控告警配置
+## 6. 性能优化实践
 
-### 3.1 完整监控体系
+### 6.1 Nginx Ingress性能调优
 
-#### Prometheus 监控配置
 ```yaml
-# 完整的监控配置
+# ConfigMap性能配置
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: ingress-monitoring-config
-  namespace: monitoring
-data:
-  prometheus.yml: |
-    global:
-      scrape_interval: 15s
-      evaluation_interval: 15s
-    
-    rule_files:
-      - "/etc/prometheus/rules/*.yml"
-    
-    scrape_configs:
-      # Ingress Controller指标
-      - job_name: 'ingress-nginx'
-        kubernetes_sd_configs:
-        - role: pod
-        relabel_configs:
-        - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_component]
-          action: keep
-          regex: controller
-        - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
-          action: replace
-          regex: ([^:]+)(?::\d+)?;(\d+)
-          replacement: $1:$2
-          target_label: __address__
-        - source_labels: [__meta_kubernetes_namespace]
-          target_label: namespace
-        - source_labels: [__meta_kubernetes_pod_name]
-          target_label: pod
-
----
-# ServiceMonitor配置
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
   name: ingress-nginx-controller
-  namespace: monitoring
-spec:
-  selector:
-    matchLabels:
-      app.kubernetes.io/name: ingress-nginx
-  namespaceSelector:
-    matchNames:
-    - ingress-nginx
-  endpoints:
-  - port: metrics
-    interval: 15s
-    path: /metrics
-    relabelings:
-    - sourceLabels: [__meta_kubernetes_pod_node_name]
-      targetLabel: node
-    - sourceLabels: [__meta_kubernetes_namespace]
-      targetLabel: namespace
-    - sourceLabels: [__meta_kubernetes_pod_name]
-      targetLabel: pod
-    metricRelabelings:
-    - sourceLabels: [__name__]
-      regex: 'nginx_ingress_controller_(.*)'
-      targetLabel: __name__
-      replacement: 'ingress_${1}'
+  namespace: ingress-nginx
+data:
+  # Worker进程配置
+  worker-processes: "auto"
+  worker-cpu-affinity: "auto"
+  worker-shutdown-timeout: "240s"
+  
+  # 连接配置
+  worker-connections: "65536"
+  max-worker-open-files: "65536"
+  
+  # Keep-alive配置
+  keep-alive: "75"
+  keep-alive-requests: "10000"
+  upstream-keepalive-connections: "320"
+  upstream-keepalive-timeout: "60"
+  upstream-keepalive-requests: "10000"
+  
+  # 超时配置
+  proxy-connect-timeout: "5"
+  proxy-read-timeout: "60"
+  proxy-send-timeout: "60"
+  
+  # 缓冲配置
+  proxy-buffer-size: "128k"
+  proxy-buffers-number: "4"
+  client-body-buffer-size: "128k"
+  client-header-buffer-size: "1k"
+  large-client-header-buffers: "4 8k"
+  
+  # 压缩配置
+  use-gzip: "true"
+  gzip-level: "5"
+  gzip-min-length: "256"
+  gzip-types: "application/atom+xml application/javascript application/json application/rss+xml application/vnd.ms-fontobject application/x-font-ttf application/x-web-app-manifest+json application/xhtml+xml application/xml font/opentype image/svg+xml image/x-icon text/css text/plain text/x-component"
+  
+  # HTTP/2配置
+  use-http2: "true"
+  http2-max-concurrent-streams: "128"
+  http2-max-field-size: "4k"
+  http2-max-header-size: "16k"
+  
+  # 负载均衡配置
+  load-balance: "ewma"  # round_robin | least_conn | ip_hash | ewma
+  
+  # 日志优化
+  access-log-buffered: "true"
+  access-log-buffer-size: "16k"
+  error-log-level: "error"
+  
+  # 安全与性能平衡
+  ssl-session-cache: "true"
+  ssl-session-cache-size: "10m"
+  ssl-session-timeout: "10m"
+  ssl-session-tickets: "true"
+  
+  # 连接限制
+  limit-conn-zone-variable: "$binary_remote_addr"
+  limit-req-zone-variable: "$binary_remote_addr"
 ```
 
-#### 关键监控指标仪表板
+### 6.2 资源配置优化
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ingress-nginx-controller
+  namespace: ingress-nginx
+spec:
+  replicas: 3  # 高可用至少3副本
+  template:
+    spec:
+      # 资源配置
+      containers:
+      - name: controller
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "512Mi"
+          limits:
+            cpu: "2000m"
+            memory: "2Gi"
+        
+        # 环境变量优化
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: LD_PRELOAD
+          value: /usr/local/lib/libmimalloc.so  # 使用mimalloc提升性能
+      
+      # 调度策略
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: ingress-nginx
+            topologyKey: kubernetes.io/hostname
+        
+        # 优先调度到高性能节点
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+              - key: node.kubernetes.io/instance-type
+                operator: In
+                values:
+                - ecs.g6.xlarge
+                - ecs.g6.2xlarge
+      
+      # 优先级
+      priorityClassName: system-cluster-critical
+      
+      # 容忍污点
+      tolerations:
+      - key: node-role.kubernetes.io/master
+        effect: NoSchedule
+```
+
+### 6.3 HPA自动扩缩容
+
+```yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ingress-nginx-hpa
+  namespace: ingress-nginx
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ingress-nginx-controller
+  
+  minReplicas: 3
+  maxReplicas: 20
+  
+  metrics:
+  # CPU使用率
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 60
+  
+  # 内存使用率
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 70
+  
+  # 自定义指标 - 每秒请求数
+  - type: Pods
+    pods:
+      metric:
+        name: nginx_ingress_controller_requests_per_second
+      target:
+        type: AverageValue
+        averageValue: "1000"
+  
+  # 扩缩容行为
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 60
+      - type: Pods
+        value: 5
+        periodSeconds: 60
+      selectPolicy: Max
+    
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 120
+      selectPolicy: Min
+```
+
+---
+
+## 7. 监控与告警
+
+### 7.1 关键监控指标
+
+| 指标类别 | 指标名称 | 告警阈值 | 说明 |
+|---------|---------|---------|------|
+| **请求** | `nginx_ingress_controller_requests` | N/A | 请求总数 |
+| **延迟** | `nginx_ingress_controller_request_duration_seconds` | P99>1s | 请求延迟 |
+| **错误** | `nginx_ingress_controller_requests{status=~"5.."}` | >1% | 5xx错误率 |
+| **连接** | `nginx_ingress_controller_nginx_process_connections` | >80% | 活跃连接数 |
+| **上游** | `nginx_ingress_controller_upstream_latency_seconds` | P99>0.5s | 后端延迟 |
+| **SSL** | `nginx_ingress_controller_ssl_certificate_expiry_time_seconds` | <7d | 证书过期 |
+
+### 7.2 Prometheus告警规则
+
+```yaml
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: ingress-nginx-alerts
+  namespace: monitoring
+spec:
+  groups:
+  - name: ingress-nginx.rules
+    rules:
+    # 高错误率告警
+    - alert: IngressHighErrorRate
+      expr: |
+        sum(rate(nginx_ingress_controller_requests{status=~"5.."}[5m])) by (ingress, namespace)
+        / 
+        sum(rate(nginx_ingress_controller_requests[5m])) by (ingress, namespace)
+        > 0.05
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Ingress错误率过高"
+        description: "{{ $labels.namespace }}/{{ $labels.ingress }} 5xx错误率超过5%"
+    
+    # 高延迟告警
+    - alert: IngressHighLatency
+      expr: |
+        histogram_quantile(0.99,
+          sum(rate(nginx_ingress_controller_request_duration_seconds_bucket[5m])) by (le, ingress, namespace)
+        ) > 2
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Ingress延迟过高"
+        description: "{{ $labels.namespace }}/{{ $labels.ingress }} P99延迟超过2秒"
+    
+    # 证书即将过期
+    - alert: IngressCertExpiringSoon
+      expr: |
+        nginx_ingress_controller_ssl_certificate_expiry_time_seconds - time() < 7 * 24 * 3600
+      for: 1h
+      labels:
+        severity: warning
+      annotations:
+        summary: "SSL证书即将过期"
+        description: "{{ $labels.host }} 的证书将在7天内过期"
+    
+    # 证书已过期
+    - alert: IngressCertExpired
+      expr: |
+        nginx_ingress_controller_ssl_certificate_expiry_time_seconds - time() < 0
+      for: 0m
+      labels:
+        severity: critical
+      annotations:
+        summary: "SSL证书已过期"
+        description: "{{ $labels.host }} 的证书已过期"
+    
+    # Controller不可用
+    - alert: IngressControllerDown
+      expr: |
+        up{job="ingress-nginx"} == 0
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Ingress Controller不可用"
+        description: "{{ $labels.instance }} Ingress Controller已下线"
+    
+    # 上游后端不可用
+    - alert: IngressBackendUnavailable
+      expr: |
+        sum(nginx_ingress_controller_upstream_peers{state="down"}) by (upstream) > 0
+      for: 2m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Ingress后端不可用"
+        description: "{{ $labels.upstream }} 有后端服务器不可用"
+    
+    # 连接数过高
+    - alert: IngressHighConnections
+      expr: |
+        nginx_ingress_controller_nginx_process_connections{state="active"} > 50000
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Ingress连接数过高"
+        description: "{{ $labels.instance }} 活跃连接数超过50000"
+```
+
+### 7.3 Grafana Dashboard
+
 ```json
 {
   "dashboard": {
-    "title": "Ingress Controller 全方位监控",
-    "timezone": "browser",
+    "title": "Nginx Ingress Controller",
     "panels": [
       {
-        "title": "核心指标概览",
-        "type": "row",
-        "panels": [
-          {
-            "title": "当前QPS",
-            "type": "stat",
-            "datasource": "Prometheus",
-            "targets": [
-              {
-                "expr": "sum(rate(nginx_ingress_controller_requests[5m]))",
-                "instant": true
-              }
-            ],
-            "thresholds": [
-              {"color": "green", "value": null},
-              {"color": "orange", "value": 1000},
-              {"color": "red", "value": 5000}
-            ]
-          },
-          {
-            "title": "5xx错误率",
-            "type": "stat",
-            "datasource": "Prometheus",
-            "targets": [
-              {
-                "expr": "sum(rate(nginx_ingress_controller_requests{status=~\"5..\"}[5m])) / sum(rate(nginx_ingress_controller_requests[5m])) * 100",
-                "instant": true
-              }
-            ],
-            "thresholds": [
-              {"color": "green", "value": null},
-              {"color": "orange", "value": 1},
-              {"color": "red", "value": 5}
-            ],
-            "unit": "percent"
-          },
-          {
-            "title": "P99延迟",
-            "type": "stat",
-            "datasource": "Prometheus",
-            "targets": [
-              {
-                "expr": "histogram_quantile(0.99, sum(rate(nginx_ingress_controller_request_duration_seconds_bucket[5m])) by (le))",
-                "instant": true
-              }
-            ],
-            "thresholds": [
-              {"color": "green", "value": null},
-              {"color": "orange", "value": 0.5},
-              {"color": "red", "value": 1}
-            ],
-            "unit": "s"
-          }
-        ]
+        "title": "Request Rate",
+        "type": "graph",
+        "targets": [{
+          "expr": "sum(rate(nginx_ingress_controller_requests[5m])) by (ingress)",
+          "legendFormat": "{{ ingress }}"
+        }]
       },
       {
-        "title": "详细性能指标",
-        "type": "row",
-        "panels": [
-          {
-            "title": "请求速率趋势",
-            "type": "timeseries",
-            "datasource": "Prometheus",
-            "targets": [
-              {
-                "expr": "sum by(status) (rate(nginx_ingress_controller_requests[5m]))",
-                "legendFormat": "{{status}}"
-              }
-            ]
-          },
-          {
-            "title": "延迟分布",
-            "type": "heatmap",
-            "datasource": "Prometheus",
-            "targets": [
-              {
-                "expr": "sum(rate(nginx_ingress_controller_request_duration_seconds_bucket[5m])) by (le)",
-                "format": "heatmap"
-              }
-            ]
-          },
-          {
-            "title": "连接状态",
-            "type": "timeseries",
-            "datasource": "Prometheus",
-            "targets": [
-              {
-                "expr": "nginx_ingress_controller_nginx_process_connections",
-                "legendFormat": "{{state}}"
-              }
-            ]
-          }
-        ]
+        "title": "Error Rate",
+        "type": "graph",
+        "targets": [{
+          "expr": "sum(rate(nginx_ingress_controller_requests{status=~\"5..\"}[5m])) by (ingress) / sum(rate(nginx_ingress_controller_requests[5m])) by (ingress)",
+          "legendFormat": "{{ ingress }}"
+        }]
+      },
+      {
+        "title": "P99 Latency",
+        "type": "graph",
+        "targets": [{
+          "expr": "histogram_quantile(0.99, sum(rate(nginx_ingress_controller_request_duration_seconds_bucket[5m])) by (le, ingress))",
+          "legendFormat": "{{ ingress }}"
+        }]
+      },
+      {
+        "title": "Active Connections",
+        "type": "graph",
+        "targets": [{
+          "expr": "nginx_ingress_controller_nginx_process_connections{state=\"active\"}",
+          "legendFormat": "{{ instance }}"
+        }]
       }
     ]
   }
 }
 ```
 
-### 3.2 智能告警规则
-
-```yaml
-# 智能告警规则配置
-apiVersion: monitoring.coreos.com/v1
-kind: PrometheusRule
-metadata:
-  name: intelligent-ingress-alerts
-  namespace: monitoring
-spec:
-  groups:
-  - name: ingress-intelligent-alerts
-    rules:
-    # 智能基线告警
-    - alert: IngressAnomalyDetection
-      expr: |
-        (
-          abs(
-            rate(nginx_ingress_controller_requests[5m]) 
-            - avg_over_time(rate(nginx_ingress_controller_requests[1h])[1d:5m])
-          ) 
-          / avg_over_time(rate(nginx_ingress_controller_requests[1h])[1d:5m])
-        ) > 2
-      for: 10m
-      labels:
-        severity: warning
-      annotations:
-        summary: "Ingress流量异常"
-        description: "当前流量与历史基线偏差超过200%，可能存在异常"
-    
-    # 多维度错误率告警
-    - alert: MultiDimensionErrorRate
-      expr: |
-        sum by(host, path) (
-          rate(nginx_ingress_controller_requests{status=~"5.."}[5m])
-        ) / sum by(host, path) (
-          rate(nginx_ingress_controller_requests[5m])
-        ) > 0.05
-      for: 5m
-      labels:
-        severity: critical
-      annotations:
-        summary: "特定路径错误率过高"
-        description: "主机{{ $labels.host }}路径{{ $labels.path }} 5xx错误率: {{ $value | humanizePercentage }}"
-    
-    # 性能退化预警
-    - alert: PerformanceDegradation
-      expr: |
-        (
-          histogram_quantile(0.95, sum(rate(nginx_ingress_controller_request_duration_seconds_bucket[5m])) by (le))
-          >
-          1.5 * avg_over_time(
-            histogram_quantile(0.95, sum(rate(nginx_ingress_controller_request_duration_seconds_bucket[1h])) by (le))[1d:1h]
-          )
-        )
-      for: 15m
-      labels:
-        severity: warning
-      annotations:
-        summary: "Ingress性能退化"
-        description: "P95延迟相比历史平均水平增长超过50%"
-```
-
 ---
 
-## 4. 故障排查手册
+## 8. 故障排查手册
 
-### 4.1 系统化诊断流程
+### 8.1 故障诊断流程
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    Ingress 故障诊断流程                                   │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  Ingress无法访问?                                                        │
+│      │                                                                  │
+│      ├── 检查Ingress资源                                                 │
+│      │   kubectl get ingress -n <namespace>                            │
+│      │   kubectl describe ingress <name> -n <namespace>                │
+│      │                                                                  │
+│      ├── 检查Ingress Controller                                         │
+│      │   kubectl get pods -n ingress-nginx                             │
+│      │   kubectl logs -n ingress-nginx <controller-pod>                │
+│      │                                                                  │
+│      ├── 检查后端Service                                                 │
+│      │   kubectl get svc <backend-service> -n <namespace>              │
+│      │   kubectl get endpoints <backend-service> -n <namespace>        │
+│      │                                                                  │
+│      ├── 检查DNS解析                                                     │
+│      │   nslookup <hostname>                                           │
+│      │   dig <hostname>                                                │
+│      │                                                                  │
+│      ├── 检查LoadBalancer/NodePort                                      │
+│      │   kubectl get svc -n ingress-nginx                              │
+│      │   检查外部IP是否分配                                              │
+│      │                                                                  │
+│      └── 检查网络连通性                                                  │
+│          curl -v http://<ingress-ip>                                   │
+│          curl -v -H "Host: example.com" http://<ingress-ip>            │
+│                                                                         │
+│  SSL/TLS问题?                                                            │
+│      │                                                                  │
+│      ├── 检查证书Secret                                                  │
+│      │   kubectl get secret <tls-secret> -n <namespace>                │
+│      │   kubectl describe secret <tls-secret>                          │
+│      │                                                                  │
+│      ├── 验证证书内容                                                    │
+│      │   kubectl get secret <secret> -o jsonpath='{.data.tls\.crt}' |  │
+│      │   base64 -d | openssl x509 -text -noout                         │
+│      │                                                                  │
+│      └── 检查证书匹配                                                    │
+│          openssl s_client -connect <host>:443 -servername <host>       │
+│                                                                         │
+│  502/504错误?                                                            │
+│      │                                                                  │
+│      ├── 后端Pod不健康                                                   │
+│      │   kubectl get pods -l <selector> -n <namespace>                 │
+│      │                                                                  │
+│      ├── Service选择器不匹配                                             │
+│      │   kubectl describe svc <service> -n <namespace>                 │
+│      │                                                                  │
+│      ├── 超时配置过短                                                    │
+│      │   检查proxy-read-timeout等注解                                   │
+│      │                                                                  │
+│      └── 后端处理时间过长                                                │
+│          检查应用性能                                                    │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### 8.2 诊断命令集
 
 ```bash
 #!/bin/bash
-# 完整的Ingress故障诊断脚本
+# Ingress诊断脚本
 
-DIAGNOSE_TIME=$(date '+%Y-%m-%d %H:%M:%S')
-LOG_FILE="/tmp/ingress-diagnose-${DIAGNOSE_TIME}.log"
+NAMESPACE=${1:-default}
+INGRESS_NAME=$2
 
-exec > >(tee -a "$LOG_FILE") 2>&1
+echo "=========================================="
+echo "Ingress诊断报告"
+echo "命名空间: $NAMESPACE"
+echo "Ingress: $INGRESS_NAME"
+echo "时间: $(date)"
+echo "=========================================="
 
-echo "========================================="
-echo "Ingress 系统诊断报告"
-echo "诊断时间: $DIAGNOSE_TIME"
-echo "========================================="
-echo
+# 1. Ingress状态
+echo -e "\n=== 1. Ingress状态 ==="
+kubectl get ingress $INGRESS_NAME -n $NAMESPACE -o wide
 
-# 1. 基础环境检查
-echo "1. 基础环境检查"
-echo "================"
-echo "Kubernetes版本:"
-kubectl version --short
-echo
+echo -e "\n=== 2. Ingress详情 ==="
+kubectl describe ingress $INGRESS_NAME -n $NAMESPACE
 
-echo "节点状态:"
-kubectl get nodes -o wide
-echo
+# 3. TLS Secret
+echo -e "\n=== 3. TLS Secret检查 ==="
+TLS_SECRET=$(kubectl get ingress $INGRESS_NAME -n $NAMESPACE -o jsonpath='{.spec.tls[0].secretName}')
+if [ -n "$TLS_SECRET" ]; then
+    kubectl get secret $TLS_SECRET -n $NAMESPACE
+    echo "证书信息:"
+    kubectl get secret $TLS_SECRET -n $NAMESPACE -o jsonpath='{.data.tls\.crt}' | base64 -d | openssl x509 -text -noout | grep -E "Subject:|Issuer:|Not Before:|Not After:"
+fi
 
-echo "Ingress Controller状态:"
-kubectl get pods -n ingress-nginx -o wide
-echo
-
-# 2. 配置状态检查
-echo "2. 配置状态检查"
-echo "==============="
-echo "Ingress资源列表:"
-kubectl get ingress -A -o wide
-echo
-
-echo "IngressClass配置:"
-kubectl get ingressclass -o wide
-echo
-
-echo "Service配置:"
-kubectl get svc -n ingress-nginx -o wide
-echo
-
-# 3. 详细诊断
-echo "3. 详细诊断"
-echo "==========="
-for ingress in $(kubectl get ingress -A -o jsonpath='{range .items[*]}{.metadata.namespace}/{.metadata.name}{"\n"}{end}'); do
-  echo "检查 Ingress: $ingress"
-  echo "----------------------"
-  kubectl describe ingress -n ${ingress%/*} ${ingress#*/} | grep -E "(Events|Warning|Error|Status)"
-  echo
+# 4. 后端Service
+echo -e "\n=== 4. 后端Service检查 ==="
+BACKENDS=$(kubectl get ingress $INGRESS_NAME -n $NAMESPACE -o jsonpath='{.spec.rules[*].http.paths[*].backend.service.name}')
+for svc in $BACKENDS; do
+    echo "Service: $svc"
+    kubectl get svc $svc -n $NAMESPACE -o wide
+    kubectl get endpoints $svc -n $NAMESPACE
 done
 
-# 4. 后端服务检查
-echo "4. 后端服务检查"
-echo "==============="
-echo "Endpoints状态:"
-kubectl get endpoints -n production
-echo
+# 5. Ingress Controller
+echo -e "\n=== 5. Ingress Controller状态 ==="
+kubectl get pods -n ingress-nginx -l app.kubernetes.io/name=ingress-nginx
 
-# 5. 网络连通性测试
-echo "5. 网络连通性测试"
-echo "================="
-echo "DNS解析测试:"
-kubectl run dns-test --rm -it --image=busybox -- nslookup kubernetes.default
-echo
+echo -e "\n=== 6. Controller日志 (最近20行) ==="
+CONTROLLER_POD=$(kubectl get pods -n ingress-nginx -l app.kubernetes.io/name=ingress-nginx -o jsonpath='{.items[0].metadata.name}')
+kubectl logs $CONTROLLER_POD -n ingress-nginx --tail=20
 
-echo "服务连通性测试:"
-kubectl run curl-test --rm -it --image=curlimages/curl -- curl -I http://app-service.production.svc.cluster.local
-echo
+# 7. Nginx配置检查
+echo -e "\n=== 7. Nginx配置检查 ==="
+kubectl exec -n ingress-nginx $CONTROLLER_POD -- nginx -T 2>/dev/null | grep -A 20 "server_name.*$(kubectl get ingress $INGRESS_NAME -n $NAMESPACE -o jsonpath='{.spec.rules[0].host}')"
 
-# 6. 性能指标检查
-echo "6. 性能指标检查"
-echo "==============="
-echo "资源使用情况:"
-kubectl top pods -n ingress-nginx
-echo
+# 8. 连通性测试
+echo -e "\n=== 8. 连通性测试 ==="
+INGRESS_IP=$(kubectl get svc -n ingress-nginx ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+HOST=$(kubectl get ingress $INGRESS_NAME -n $NAMESPACE -o jsonpath='{.spec.rules[0].host}')
 
-echo "关键指标:"
-kubectl exec -n ingress-nginx deploy/ingress-nginx-controller -- curl -s localhost:10254/metrics | \
-  grep -E "(nginx_ingress_controller_requests|nginx_ingress_controller_request_duration|config_last_reload)" | \
-  head -20
-echo
+if [ -n "$INGRESS_IP" ]; then
+    echo "测试: curl -H 'Host: $HOST' http://$INGRESS_IP"
+    curl -s -o /dev/null -w "HTTP状态码: %{http_code}\n" -H "Host: $HOST" "http://$INGRESS_IP" --connect-timeout 5
+fi
 
-# 7. 错误日志分析
-echo "7. 错误日志分析"
-echo "==============="
-echo "最近错误日志:"
-kubectl logs -n ingress-nginx -l app.kubernetes.io/component=controller --since=1h | \
-  grep -i "error\|warning\|failed" | \
-  tail -10
-echo
-
-echo "诊断完成，详细日志保存在: $LOG_FILE"
+echo -e "\n诊断完成"
 ```
 
-### 4.2 常见故障排查表
+### 8.3 常见故障解决
 
-| 故障现象 | 可能原因 | 诊断命令 | 解决方案 |
-|----------|----------|----------|----------|
-| **502 Bad Gateway** | 后端服务不可达 | `kubectl get endpoints <service>` | 检查后端Pod状态和Service配置 |
-| **503 Service Unavailable** | 无健康后端实例 | `kubectl get pods -l <selector>` | 扩容后端服务或检查健康检查配置 |
-| **504 Gateway Timeout** | 后端响应超时 | 查看`upstream_response_time`指标 | 增加上游超时配置或优化后端性能 |
-| **404 Not Found** | 路径不匹配 | `kubectl describe ingress <name>` | 检查Ingress path配置和匹配规则 |
-| **证书错误** | TLS握手失败 | `openssl s_client -connect <domain>:443` | 更新证书或检查证书链完整性 |
-| **重定向循环** | 配置冲突 | 检查`ssl-redirect`注解 | 调整HTTPS重定向配置 |
-| **高延迟** | 性能瓶颈 | `kubectl top pods` + Prometheus指标 | 扩容Controller或优化配置 |
-| **连接拒绝** | 端口未开放 | `telnet <lb-ip> <port>` | 检查Service端口配置和安全组规则 |
-
-### 4.3 紧急恢复操作
+#### 8.3.1 404 Not Found
 
 ```bash
-# 紧急故障恢复操作手册
+# 问题: 访问返回404
 
-# 1. 快速重启Ingress Controller
-echo "正在重启Ingress Controller..."
-kubectl rollout restart deployment/ingress-nginx-controller -n ingress-nginx
-kubectl rollout status deployment/ingress-nginx-controller -n ingress-nginx --timeout=300s
+# 1. 检查Host头是否正确
+curl -v -H "Host: api.example.com" http://<ingress-ip>/
 
-# 2. 回滚到上一个稳定版本
-echo "正在回滚到上一个版本..."
-kubectl rollout undo deployment/ingress-nginx-controller -n ingress-nginx
+# 2. 检查Ingress规则中的host是否匹配
+kubectl get ingress <name> -o jsonpath='{.spec.rules[*].host}'
 
-# 3. 临时禁用有问题的Ingress
-echo "正在禁用问题Ingress..."
-kubectl annotate ingress problematic-ingress -n production nginx.ingress.kubernetes.io/server-snippet='return 503;' --overwrite
+# 3. 检查path是否正确
+kubectl get ingress <name> -o jsonpath='{.spec.rules[*].http.paths[*].path}'
 
-# 4. 恢复默认后端
-echo "正在恢复默认后端..."
-kubectl patch ingress default-backend -n production -p '{"spec":{"defaultBackend":{"service":{"name":"maintenance-page","port":{"number":80}}}}}'
+# 4. 检查后端Service是否有Endpoints
+kubectl get endpoints <service-name>
 
-# 5. 紧急扩容
-echo "正在进行紧急扩容..."
-kubectl scale deployment ingress-nginx-controller -n ingress-nginx --replicas=5
+# 解决方案
+# 确保Host头、path、Service配置正确匹配
+```
 
-# 6. 清理故障Pod
-echo "正在清理故障Pod..."
-kubectl delete pods -n ingress-nginx -l app.kubernetes.io/component=controller --field-selector=status.phase!=Running
+#### 8.3.2 502 Bad Gateway
+
+```bash
+# 问题: 返回502错误
+
+# 1. 检查后端Pod状态
+kubectl get pods -l <selector> -o wide
+kubectl describe pod <pod-name>
+
+# 2. 检查Service的targetPort
+kubectl get svc <service> -o jsonpath='{.spec.ports[*].targetPort}'
+# 确保与Pod的containerPort匹配
+
+# 3. 直接测试后端Pod
+kubectl port-forward <pod-name> 8080:8080
+curl http://localhost:8080/
+
+# 4. 检查Controller日志
+kubectl logs -n ingress-nginx <controller-pod> | grep "502"
+
+# 解决方案
+# - 修复后端Pod问题
+# - 确保targetPort正确
+# - 增加超时配置
+```
+
+#### 8.3.3 SSL证书问题
+
+```bash
+# 问题: SSL证书错误
+
+# 1. 检查证书是否存在
+kubectl get secret <tls-secret> -n <namespace>
+
+# 2. 验证证书域名
+kubectl get secret <tls-secret> -o jsonpath='{.data.tls\.crt}' | \
+  base64 -d | openssl x509 -noout -text | grep -A1 "Subject Alternative Name"
+
+# 3. 检查证书是否过期
+kubectl get secret <tls-secret> -o jsonpath='{.data.tls\.crt}' | \
+  base64 -d | openssl x509 -noout -dates
+
+# 4. 验证证书链完整性
+openssl s_client -connect <host>:443 -servername <host>
+
+# 解决方案
+# - 更新证书Secret
+# - 确保证书域名匹配
+# - 包含完整证书链
 ```
 
 ---
 
-## 5. 性能调优指南
+## 9. 安全加固配置
 
-### 5.1 基准性能测试
-
-```bash
-#!/bin/bash
-# Ingress性能基准测试脚本
-
-TEST_DURATION=${1:-300}  # 默认测试5分钟
-CONCURRENT_USERS=${2:-100}  # 默认100并发用户
-TARGET_URL=${3:-"https://test.example.com"}
-
-echo "开始Ingress性能测试"
-echo "测试时长: ${TEST_DURATION}秒"
-echo "并发用户: ${CONCURRENT_USERS}"
-echo "目标URL: ${TARGET_URL}"
-echo
-
-# 使用hey进行压力测试
-hey -z "${TEST_DURATION}s" -c ${CONCURRENT_USERS} ${TARGET_URL} | tee /tmp/ingress-benchmark-$(date +%s).txt
-
-# 分析结果
-echo
-echo "性能测试结果分析:"
-cat /tmp/ingress-benchmark-$(date +%s).txt | grep -E "(Requests/sec|Latencies|Status codes)"
-
-# 记录关键指标
-QPS=$(cat /tmp/ingress-benchmark-$(date +%s).txt | grep "Requests/sec" | awk '{print $2}')
-P95_LATENCY=$(cat /tmp/ingress-benchmark-$(date +%s).txt | grep "95%" | awk '{print $2}')
-ERROR_RATE=$(cat /tmp/ingress-benchmark-$(date +%s).txt | grep "Status code distribution" -A 10 | grep "50" | awk '{print $2}' | sed 's/[()%]//g')
-
-echo
-echo "关键性能指标:"
-echo "QPS: ${QPS}"
-echo "P95延迟: ${P95_LATENCY}"
-echo "错误率: ${ERROR_RATE}%"
-```
-
-### 5.2 性能优化参数调优
+### 9.1 WAF配置 (ModSecurity)
 
 ```yaml
-# 性能优化的完整配置
+# 启用ModSecurity
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: ingress-performance-tuning
+  name: ingress-nginx-controller
   namespace: ingress-nginx
 data:
-  # === 工作进程优化 ===
-  worker-processes: "auto"
-  worker-cpu-affinity: "auto"
-  worker-shutdown-timeout: "300s"
-  worker-rlimit-nofile: "131072"
-  worker-connections: "65535"
-  
-  # === 内存优化 ===
-  worker-buffer-size: "64k"
-  client-body-buffer-size: "256k"
-  client-header-buffer-size: "8k"
-  large-client-header-buffers: "8 32k"
-  
-  # === 连接优化 ===
-  keep-alive: "300"
-  keep-alive-requests: "100000"
-  keep-alive-timeout: "300"
-  
-  # === 上游优化 ===
-  upstream-keepalive-connections: "1000"
-  upstream-keepalive-requests: "10000"
-  upstream-keepalive-timeout: "300"
-  
-  # === 缓存优化 ===
-  proxy-buffer-size: "64k"
-  proxy-buffers-number: "32"
-  proxy-busy-buffers-size: "256k"
-  proxy-temp-file-write-size: "512k"
-  
-  # === 超时优化 ===
-  proxy-connect-timeout: "5"
-  proxy-read-timeout: "300"
-  proxy-send-timeout: "300"
-  proxy-next-upstream-timeout: "60"
-  
-  # === 压缩优化 ===
-  use-gzip: "true"
-  gzip-level: "6"
-  gzip-min-length: "256"
-  gzip-types: |
-    text/plain text/css application/json application/javascript 
-    text/xml application/xml application/xml+rss text/javascript 
-    application/x-javascript application/x-font-ttf font/opentype
-  gzip-vary: "on"
-  gzip-proxied: "any"
-  
-  # === HTTP/2优化 ===
-  use-http2: "true"
-  http2-max-concurrent-streams: "1000"
-  http2-max-field-size: "32k"
-  http2-max-header-size: "64k"
-  http2-body-preread-size: "64k"
-  
-  # === 日志优化 ===
-  access-log-path: "/dev/stdout"
-  error-log-path: "/dev/stderr"
-  log-format-escape-json: "true"
-  log-format-upstream: |
-    {
-      "timestamp": "$time_iso8601",
-      "request_id": "$req_id",
-      "remote_addr": "$remote_addr",
-      "xff": "$proxy_add_x_forwarded_for",
-      "method": "$request_method",
-      "host": "$host",
-      "uri": "$uri",
-      "query": "$query_string",
-      "status": $status,
-      "body_bytes": $bytes_sent,
-      "request_time": $request_time,
-      "upstream_addr": "$upstream_addr",
-      "upstream_response_time": "$upstream_response_time",
-      "upstream_status": "$upstream_status",
-      "user_agent": "$http_user_agent"
-    }
-  
-  # === 安全优化 ===
-  server-tokens: "false"
-  hide-headers: "X-Powered-By,Server"
-  
-  # === 监控优化 ===
-  enable-prometheus-metrics: "true"
-  metrics-per-host: "true"
-```
-
-### 5.3 容量规划指南
-
-```yaml
-# 不同规模的容量规划建议
-capacity_planning:
-  small_scale:  # 小规模 (QPS < 1000)
-    replicas: 2
-    resources:
-      requests:
-        cpu: "200m"
-        memory: "256Mi"
-      limits:
-        cpu: "1000m"
-        memory: "1Gi"
-    config_tuning:
-      worker_processes: "2"
-      worker_connections: "16384"
-      keep_alive_requests: "1000"
+  enable-modsecurity: "true"
+  enable-owasp-modsecurity-crs: "true"
+  modsecurity-snippet: |
+    SecRuleEngine On
+    SecRequestBodyAccess On
+    SecAuditEngine RelevantOnly
+    SecAuditLogParts ABIJDEFHZ
+    SecAuditLogType Serial
+    SecAuditLog /var/log/modsecurity/audit.log
     
-  medium_scale:  # 中规模 (QPS 1000-10000)
-    replicas: 3
-    resources:
-      requests:
-        cpu: "500m"
-        memory: "512Mi"
-      limits:
-        cpu: "2000m"
-        memory: "2Gi"
-    config_tuning:
-      worker_processes: "auto"
-      worker_connections: "32768"
-      keep_alive_requests: "10000"
-      upstream_keepalive_connections: "500"
+    # 自定义规则
+    SecRule ARGS "@contains <script>" "id:1001,deny,status:403,msg:'XSS Attack Detected'"
+    SecRule REQUEST_URI "@contains ../." "id:1002,deny,status:403,msg:'Path Traversal Detected'"
     
-  large_scale:  # 大规模 (QPS 10000-100000)
-    replicas: 5
-    resources:
-      requests:
-        cpu: "1000m"
-        memory: "1Gi"
-      limits:
-        cpu: "4000m"
-        memory: "4Gi"
-    config_tuning:
-      worker_processes: "auto"
-      worker_connections: "65535"
-      keep_alive_requests: "100000"
-      upstream_keepalive_connections: "1000"
-      proxy_buffers_number: "32"
-    
-  xlarge_scale:  # 超大规模 (QPS > 100000)
-    replicas: 10
-    resources:
-      requests:
-        cpu: "2000m"
-        memory: "2Gi"
-      limits:
-        cpu: "8000m"
-        memory: "8Gi"
-    config_tuning:
-      worker_processes: "auto"
-      worker_connections: "65535"
-      keep_alive_requests: "1000000"
-      upstream_keepalive_connections: "2000"
-      proxy_buffers_number: "64"
-      use_gzip: "false"  # 高并发时考虑关闭压缩
-```
+    # 排除特定路径
+    SecRule REQUEST_URI "@beginsWith /api/upload" "id:1003,phase:1,nolog,pass,ctl:ruleRemoveById=200002"
 
 ---
-
-## 6. 多环境管理
-
-### 6.1 环境差异化配置
-
-```yaml
-# 使用Kustomize管理多环境配置
-
-# base/ingress.yaml
+# 特定Ingress启用WAF
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: app-ingress
+  name: secure-ingress
   annotations:
-    nginx.ingress.kubernetes.io/ssl-redirect: "$(SSL_REDIRECT)"
-    nginx.ingress.kubernetes.io/proxy-body-size: "$(PROXY_BODY_SIZE)"
+    nginx.ingress.kubernetes.io/enable-modsecurity: "true"
+    nginx.ingress.kubernetes.io/enable-owasp-core-rules: "true"
+    nginx.ingress.kubernetes.io/modsecurity-transaction-id: "$request_id"
 spec:
-  ingressClassName: nginx
-  rules:
-  - host: "$(DOMAIN)"
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: app-service
-            port:
-              number: 80
-
----
-# overlays/dev/config.properties
-SSL_REDIRECT=false
-PROXY_BODY_SIZE=50m
-DOMAIN=app.dev.example.com
-REPLICAS=1
-RESOURCES={"requests": {"cpu": "100m", "memory": "128Mi"}}
-
----
-# overlays/staging/config.properties
-SSL_REDIRECT=true
-PROXY_BODY_SIZE=100m
-DOMAIN=app.staging.example.com
-REPLICAS=2
-RESOURCES={"requests": {"cpu": "200m", "memory": "256Mi"}}
-
----
-# overlays/prod/config.properties
-SSL_REDIRECT=true
-PROXY_BODY_SIZE=200m
-DOMAIN=app.example.com
-REPLICAS=3
-RESOURCES={"requests": {"cpu": "500m", "memory": "512Mi"}}
+  # ...
 ```
 
-### 6.2 蓝绿部署策略
+### 9.2 访问控制
 
 ```yaml
-# 蓝绿部署配置示例
----
-# 蓝色环境
+# IP白名单
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: blue-ingress
+  name: whitelist-ingress
   annotations:
-    nginx.ingress.kubernetes.io/canary: "false"
+    nginx.ingress.kubernetes.io/whitelist-source-range: "10.0.0.0/8,192.168.0.0/16,203.0.113.0/24"
+spec:
+  # ...
+
+---
+# Basic Auth认证
+apiVersion: v1
+kind: Secret
+metadata:
+  name: basic-auth
+  namespace: production
+type: Opaque
+data:
+  auth: YWRtaW46JGFwcjEkSDZVR2RVSVQJY3JOelVzVXRsYlVvdS5XUk0zbnkvLgo=
+  # 生成方式: htpasswd -c auth admin && base64 auth
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: basic-auth-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: basic-auth
+    nginx.ingress.kubernetes.io/auth-realm: "Authentication Required"
+spec:
+  # ...
+
+---
+# OAuth2代理认证
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: oauth-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/auth-url: "https://oauth2-proxy.example.com/oauth2/auth"
+    nginx.ingress.kubernetes.io/auth-signin: "https://oauth2-proxy.example.com/oauth2/start?rd=$escaped_request_uri"
+    nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-User, X-Auth-Request-Email"
+spec:
+  # ...
+```
+
+### 9.3 安全头配置
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: secure-headers-ingress
+  annotations:
+    # HSTS
+    nginx.ingress.kubernetes.io/hsts: "true"
+    nginx.ingress.kubernetes.io/hsts-max-age: "31536000"
+    nginx.ingress.kubernetes.io/hsts-include-subdomains: "true"
+    nginx.ingress.kubernetes.io/hsts-preload: "true"
+    
+    # 安全头配置
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Frame-Options: SAMEORIGIN";
+      more_set_headers "X-Content-Type-Options: nosniff";
+      more_set_headers "X-XSS-Protection: 1; mode=block";
+      more_set_headers "Referrer-Policy: strict-origin-when-cross-origin";
+      more_set_headers "Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'";
+      more_set_headers "Permissions-Policy: geolocation=(), microphone=(), camera=()";
+spec:
+  # ...
+```
+
+---
+
+## 10. 实战案例演练
+
+### 10.1 案例一：电商平台Ingress架构
+
+```yaml
+# 电商平台Ingress配置
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ecommerce-ingress
+  namespace: production
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://www.example.com"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
   ingressClassName: nginx
   tls:
   - hosts:
-    - app.example.com
-    secretName: app-tls
+    - www.example.com
+    - api.example.com
+    - admin.example.com
+    secretName: ecommerce-tls
   rules:
-  - host: app.example.com
+  # 主站
+  - host: www.example.com
     http:
       paths:
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: app-blue
+            name: web-frontend
+            port:
+              number: 80
+      - path: /static
+        pathType: Prefix
+        backend:
+          service:
+            name: static-cdn
+            port:
+              number: 80
+  
+  # API
+  - host: api.example.com
+    http:
+      paths:
+      - path: /v1
+        pathType: Prefix
+        backend:
+          service:
+            name: api-v1
+            port:
+              number: 80
+      - path: /v2
+        pathType: Prefix
+        backend:
+          service:
+            name: api-v2
+            port:
+              number: 80
+  
+  # 管理后台
+  - host: admin.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: admin-panel
             port:
               number: 80
 
 ---
-# 绿色环境 (金丝雀5%流量)
+# 管理后台增加IP白名单
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: green-canary-ingress
+  name: admin-ingress
+  namespace: production
   annotations:
-    nginx.ingress.kubernetes.io/canary: "true"
-    nginx.ingress.kubernetes.io/canary-weight: "5"
+    nginx.ingress.kubernetes.io/whitelist-source-range: "10.0.0.0/8,203.0.113.50/32"
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: admin-auth
 spec:
   ingressClassName: nginx
   tls:
   - hosts:
-    - app.example.com
-    secretName: app-tls
+    - admin.example.com
+    secretName: admin-tls
   rules:
-  - host: app.example.com
+  - host: admin.example.com
     http:
       paths:
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: app-green
+            name: admin-panel
+            port:
+              number: 80
+```
+
+### 10.2 案例二：微服务网关配置
+
+```yaml
+# 微服务网关Ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: microservices-gateway
+  namespace: production
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "10"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
+    nginx.ingress.kubernetes.io/limit-rps: "100"
+    nginx.ingress.kubernetes.io/limit-connections: "50"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - gateway.example.com
+    secretName: gateway-tls
+  rules:
+  - host: gateway.example.com
+    http:
+      paths:
+      # 用户服务
+      - path: /user(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: user-service
+            port:
+              number: 80
+      
+      # 订单服务
+      - path: /order(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: order-service
+            port:
+              number: 80
+      
+      # 商品服务
+      - path: /product(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: product-service
+            port:
+              number: 80
+      
+      # 支付服务 (更长超时)
+      - path: /payment(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: payment-service
             port:
               number: 80
 
 ---
-# 流量切换脚本
-#!/bin/bash
-# blue-green-switch.sh
-
-DESIRED_WEIGHT=${1:-100}  # 默认切换到100%绿色
-
-echo "开始流量切换到绿色环境，权重: ${DESIRED_WEIGHT}%"
-
-# 逐步增加绿色环境权重
-for weight in 10 25 50 75 ${DESIRED_WEIGHT}; do
-  echo "设置绿色环境权重为 ${weight}%"
-  kubectl patch ingress green-canary-ingress -p "{\"metadata\":{\"annotations\":{\"nginx.ingress.kubernetes.io/canary-weight\":\"${weight}\"}}}"
-  sleep 30  # 等待30秒观察效果
-done
-
-echo "流量切换完成"
+# 支付服务特殊配置
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: payment-ingress
+  namespace: production
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+    nginx.ingress.kubernetes.io/whitelist-source-range: "10.0.0.0/8"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: gateway.example.com
+    http:
+      paths:
+      - path: /payment
+        pathType: Prefix
+        backend:
+          service:
+            name: payment-service
+            port:
+              number: 80
 ```
 
-### 6.3 灰度发布自动化
+---
+
+## 11. 总结与Q&A
+
+### 11.1 核心要点回顾
+
+| 主题 | 关键要点 |
+|------|----------|
+| **Controller选择** | Nginx(通用) / ALB(云原生) / Traefik(K8s原生) |
+| **TLS管理** | cert-manager自动化 + Let's Encrypt |
+| **流量管理** | 金丝雀(权重/Header) + 蓝绿(Service切换) |
+| **性能优化** | 连接池 + Keep-alive + 压缩 + HTTP/2 |
+| **安全加固** | WAF + IP白名单 + 安全头 + OAuth2 |
+
+### 11.2 最佳实践清单
+
+- [ ] 生产环境至少3副本Ingress Controller
+- [ ] 使用cert-manager自动管理证书
+- [ ] 配置合理的超时和缓冲参数
+- [ ] 启用监控和告警
+- [ ] 配置WAF防护
+- [ ] 实施访问控制和安全头
+- [ ] 定期检查证书有效期
+- [ ] 测试金丝雀/蓝绿发布流程
+
+### 11.3 常见问题解答
+
+**Q: Nginx Ingress和云厂商ALB Ingress如何选择？**
+A: 追求灵活性和定制化用Nginx；追求云原生和自动化用ALB。大多数场景Nginx足够。
+
+**Q: 如何实现零停机部署？**
+A: 使用金丝雀发布逐步切换流量，或蓝绿部署通过Service切换实现秒级切换。
+
+**Q: Ingress Controller高可用如何保证？**
+A: 多副本部署 + 反亲和性 + 跨AZ分布 + HPA自动扩缩容。
+
+**Q: 证书更新会导致中断吗？**
+A: cert-manager自动续期不会中断；手动更新Secret时Nginx会热重载，短暂影响。
+
+---
+
+## 阿里云ACK专属配置
+
+### ACK Ingress配置
 
 ```yaml
-# 灰度发布流水线配置
----
-# Argo Rollouts 配置
-apiVersion: argoproj.io/v1alpha1
-kind: Rollout
+# ACK Nginx Ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
 metadata:
-  name: app-rollout
+  name: ack-nginx-ingress
+  annotations:
+    # ACK特有注解
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    
+    # 阿里云SLB配置
+    service.beta.kubernetes.io/alibaba-cloud-loadbalancer-spec: "slb.s2.small"
+    service.beta.kubernetes.io/alibaba-cloud-loadbalancer-address-type: "internet"
 spec:
-  replicas: 5
-  strategy:
-    canary:
-      steps:
-      - setWeight: 10
-        pause: {duration: 60s}
-      - setWeight: 25
-        pause: {duration: 120s}
-      - setWeight: 50
-        pause: {duration: 180s}
-      - setWeight: 75
-        pause: {duration: 120s}
-      - setWeight: 100
-      analysis:
-        templates:
-        - templateName: success-rate
-        startingStep: 2  # 从第3步开始分析
-  revisionHistoryLimit: 2
-  selector:
-    matchLabels:
-      app: app-rollout
-  template:
-    metadata:
-      labels:
-        app: app-rollout
-    spec:
-      containers:
-      - name: app
-        image: app:v2.0.0
-        ports:
-        - containerPort: 8080
-        resources:
-          requests:
-            cpu: 100m
-            memory: 128Mi
-          limits:
-            cpu: 200m
-            memory: 256Mi
+  # ...
 
 ---
-# 分析模板
-apiVersion: argoproj.io/v1alpha1
-kind: AnalysisTemplate
+# ACK ALB Ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
 metadata:
-  name: success-rate
+  name: ack-alb-ingress
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/address-type: internet
+    alb.ingress.kubernetes.io/vswitch-ids: "vsw-xxx,vsw-yyy"
+    alb.ingress.kubernetes.io/slb-spec: "alb.s2.small"
 spec:
-  args:
-  - name: service-name
-  metrics:
-  - name: success-rate
-    interval: 5m
-    count: 3
-    # 成功率必须大于95%
-    successCondition: result[0] >= 0.95
-    provider:
-      prometheus:
-        address: http://prometheus-operated:9090
-        query: |
-          sum(rate(nginx_ingress_controller_requests{status!~"5..", service="{{args.service-name}}"}[5m]))
-          /
-          sum(rate(nginx_ingress_controller_requests{service="{{args.service-name}}"}[5m]))
+  # ...
 ```
 
 ---
 
-**文档结束**
+## 附录 A: 常用命令速查表
 
-*本文档提供了Kubernetes Ingress在阿里云环境下的全方位技术支撑，包括负载均衡选择、安全加固、监控告警、故障排查和性能优化等关键内容。建议结合实际业务需求和环境特点进行配置调整。*
+```bash
+# Ingress 管理
+kubectl get ingress -A -o wide
+kubectl describe ingress <name> -n <namespace>
+kubectl get ingress <name> -o yaml
+
+# IngressClass 检查
+kubectl get ingressclass
+kubectl describe ingressclass <name>
+
+# Ingress Controller 检查
+kubectl get pods -n ingress-nginx -o wide
+kubectl logs -n ingress-nginx -l app.kubernetes.io/name=ingress-nginx --tail=100
+kubectl exec -n ingress-nginx <pod> -- nginx -T  # 查看Nginx配置
+
+# TLS 证书检查
+kubectl get secrets -A | grep tls
+kubectl describe secret <tls-secret> -n <namespace>
+kubectl get secret <tls-secret> -o jsonpath='{.data.tls\.crt}' | base64 -d | openssl x509 -text -noout
+
+# cert-manager 检查
+kubectl get certificates -A
+kubectl get certificaterequests -A
+kubectl get orders -A
+kubectl get challenges -A
+kubectl describe certificate <name> -n <namespace>
+
+# 连通性测试
+curl -v -H "Host: example.com" http://<ingress-ip>/path
+curl -v --resolve example.com:443:<ingress-ip> https://example.com/path
+
+# Ingress Controller 指标
+kubectl port-forward -n ingress-nginx svc/ingress-nginx-controller 10254:10254
+# 访问 http://localhost:10254/metrics
+```
+
+## 附录 B: 配置模板索引
+
+| 模板名称 | 适用场景 | 章节位置 |
+|----------|----------|----------|
+| 基础 HTTP Ingress | 简单路由 | 3.1 节 |
+| HTTPS TLS Ingress | 加密传输 | 4.1 节 |
+| 多域名 Ingress | 多站点托管 | 3.2 节 |
+| 路径重写配置 | URL 改写 | 3.3 节 |
+| 金丝雀发布配置 | 灰度发布 | 5.1 节 |
+| 蓝绿部署配置 | 零停机发布 | 5.2 节 |
+| 限流配置 | 流量控制 | 6.1 节 |
+| 认证配置 | Basic Auth/OAuth | 9.2 节 |
+| WAF 配置 | 安全防护 | 9.3 节 |
+| ACK ALB Ingress | 阿里云原生 | ACK专属配置 |
+
+## 附录 C: 故障排查索引
+
+| 故障现象 | 可能原因 | 排查方法 | 章节位置 |
+|----------|----------|----------|----------|
+| 503 Service Unavailable | 后端 Pod 不健康 | kubectl get endpoints | 8.1 节 |
+| 404 Not Found | Ingress 规则不匹配 | 检查 path 配置 | 8.2 节 |
+| 502 Bad Gateway | 后端服务端口错误 | 检查 Service 端口 | 8.2 节 |
+| SSL 证书错误 | 证书过期/不匹配 | openssl 检查证书 | 8.3 节 |
+| Ingress 无外部 IP | LB 创建失败 | 检查云控制器日志 | 8.4 节 |
+| 金丝雀不生效 | 注解配置错误 | 检查 nginx annotations | 8.5 节 |
+| 响应超时 | 后端处理慢 | 调整 proxy-read-timeout | 8.6 节 |
+
+## 附录 D: 监控指标参考
+
+| 指标名称 | 类型 | 说明 | 告警阈值 |
+|----------|------|------|----------|
+| `nginx_ingress_controller_requests` | Counter | 请求总数 | - |
+| `nginx_ingress_controller_request_duration_seconds` | Histogram | 请求延迟 | P99 > 1s |
+| `nginx_ingress_controller_response_size` | Histogram | 响应大小 | - |
+| `nginx_ingress_controller_nginx_process_connections` | Gauge | 当前连接数 | > 80% 最大连接 |
+| `nginx_ingress_controller_ssl_expire_time_seconds` | Gauge | 证书过期时间 | < 7天 |
+| `nginx_ingress_controller_success` | Counter | 2xx/3xx 响应 | - |
+| `nginx_ingress_controller_errors` | Counter | 4xx/5xx 响应 | 5xx > 1% |
+
+## 附录 E: Nginx Ingress 常用注解
+
+| 注解 | 说明 | 示例值 |
+|------|------|--------|
+| `nginx.ingress.kubernetes.io/rewrite-target` | URL 重写 | `/$2` |
+| `nginx.ingress.kubernetes.io/ssl-redirect` | 强制 HTTPS | `"true"` |
+| `nginx.ingress.kubernetes.io/proxy-body-size` | 请求体大小限制 | `"100m"` |
+| `nginx.ingress.kubernetes.io/proxy-read-timeout` | 后端读取超时 | `"300"` |
+| `nginx.ingress.kubernetes.io/limit-rps` | 请求限流 | `"100"` |
+| `nginx.ingress.kubernetes.io/canary` | 金丝雀发布 | `"true"` |
+| `nginx.ingress.kubernetes.io/canary-weight` | 金丝雀权重 | `"10"` |
+| `nginx.ingress.kubernetes.io/whitelist-source-range` | IP 白名单 | `"10.0.0.0/8"` |
+
+---
+
+**文档版本**: v2.0  
+**适用版本**: Kubernetes v1.26-v1.32  
+**更新日期**: 2026年1月  
+**作者**: Kusheet Project  
+**联系方式**: Allen Galler (allengaller@gmail.com)
+
+---
+
+*全文完 - Kubernetes Ingress 流量入口生产环境运维培训*
