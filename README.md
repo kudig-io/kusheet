@@ -298,94 +298,123 @@ Kusheet 是面向**生产环境**的 Kubernetes + AI Infrastructure 运维全域
 
 ### 域G: 安全合规 (Security & Compliance)
 
-> 12 篇 | 安全实践、RBAC、PSS、证书、镜像扫描、策略引擎
+> 16 篇 | 认证授权、网络安全、运行时安全、审计合规、安全实践、策略引擎
+
+#### G1: 核心安全体系 (01-04)
 
 | # | 简称 | 表格 | 关键内容 |
 |:---:|:---|:---|:---|
-| 81 | 安全实践 | [security-best-practices](./domain-7-security/81-security-best-practices.md) | 安全最佳实践 |
-| 82 | 安全加固 | [security-hardening-production](./domain-7-security/82-security-hardening-production.md) | 生产加固清单 |
-| 83 | PSS标准 | [pod-security-standards](./domain-7-security/83-pod-security-standards.md) | Pod安全标准 |
-| 84 | RBAC | [rbac-matrix-configuration](./domain-7-security/84-rbac-matrix-configuration.md) | 权限矩阵配置 |
-| 85 | 证书管理 | [certificate-management](./domain-7-security/85-certificate-management.md) | PKI、cert-manager |
-| 86 | 镜像扫描 | [image-security-scanning](./domain-7-security/86-image-security-scanning.md) | 漏洞扫描 |
-| 87 | OPA/Kyverno | [policy-engines-opa-kyverno](./domain-7-security/87-policy-engines-opa-kyverno.md) | 策略引擎对比 |
-| 88 | 合规认证 | [compliance-certification](./domain-7-security/88-compliance-certification.md) | SOC2/ISO/PCI |
-| 89 | 审计实践 | [compliance-audit-practices](./domain-7-security/89-compliance-audit-practices.md) | 审计日志配置 |
-| 90 | 密钥管理 | [secret-management-tools](./domain-7-security/90-secret-management-tools.md) | Vault/ESO集成 |
-| 91 | 安全扫描 | [security-scanning-tools](./domain-7-security/91-security-scanning-tools.md) | Trivy/Falco |
-| 92 | 策略验证 | [policy-validation-tools](./domain-7-security/92-policy-validation-tools.md) | 策略校验工具 |
+| 01 | 认证授权 | [authentication-authorization-system](./domain-7-security/01-authentication-authorization-system.md) | RBAC、OIDC、ServiceAccount、认证授权体系 |
+| 02 | 网络安全 | [network-security-policies](./domain-7-security/02-network-security-policies.md) | NetworkPolicy、服务网格、零信任安全模型 |
+| 03 | 运行时安全 | [runtime-security-defense](./domain-7-security/03-runtime-security-defense.md) | Seccomp/AppArmor、Falco威胁检测、运行时防护 |
+| 04 | 审计合规 | [audit-logging-compliance](./domain-7-security/04-audit-logging-compliance.md) | 审计策略、日志收集、合规性检查、SOC2/ISO认证 |
+
+#### G2: 安全实践与工具 (05-16)
+
+| # | 简称 | 表格 | 关键内容 |
+|:---:|:---|:---|:---|
+| 05 | 安全实践 | [security-best-practices](./domain-7-security/05-security-best-practices.md) | 安全最佳实践 |
+| 06 | 安全加固 | [security-hardening-production](./domain-7-security/06-security-hardening-production.md) | 生产加固清单 |
+| 07 | PSS标准 | [pod-security-standards](./domain-7-security/07-pod-security-standards.md) | Pod安全标准 |
+| 08 | RBAC矩阵 | [rbac-matrix-configuration](./domain-7-security/08-rbac-matrix-configuration.md) | 权限矩阵配置 |
+| 09 | 证书管理 | [certificate-management](./domain-7-security/09-certificate-management.md) | PKI、cert-manager |
+| 10 | 镜像扫描 | [image-security-scanning](./domain-7-security/10-image-security-scanning.md) | 漏洞扫描 |
+| 11 | 策略引擎 | [policy-engines-opa-kyverno](./domain-7-security/11-policy-engines-opa-kyverno.md) | OPA/Kyverno策略引擎对比 |
+| 12 | 合规认证 | [compliance-certification](./domain-7-security/12-compliance-certification.md) | SOC2/ISO/PCI合规认证 |
+| 13 | 审计实践 | [compliance-audit-practices](./domain-7-security/13-compliance-audit-practices.md) | 审计日志配置实践 |
+| 14 | 密钥管理 | [secret-management-tools](./domain-7-security/14-secret-management-tools.md) | Vault/ESO集成 |
+| 15 | 安全扫描 | [security-scanning-tools](./domain-7-security/15-security-scanning-tools.md) | Trivy/Falco安全扫描工具 |
+| 16 | 策略验证 | [policy-validation-tools](./domain-7-security/16-policy-validation-tools.md) | 策略校验工具 |
 
 ---
 
 ### 域H: 可观测性 (Observability)
 
-> 12 篇 | 监控、日志、链路追踪、性能分析、健康检查、混沌工程
+> 17 篇 | 架构体系、监控指标、日志审计、链路追踪、告警管理、故障排查、性能分析、混沌工程
 
 #### H1: 监控与指标
 
 | # | 简称 | 表格 | 关键内容 |
 |:---:|:---|:---|:---|
-| 93 | Prometheus | [monitoring-metrics-prometheus](./domain-8-observability/93-monitoring-metrics-prometheus.md) | Prometheus监控体系 |
-| 94 | 自定义指标 | [custom-metrics-adapter](./domain-8-observability/94-custom-metrics-adapter.md) | Metrics API扩展 |
-| 97 | 可观测工具 | [observability-tools](./domain-8-observability/97-observability-tools.md) | 可观测性工具栈 |
+| 01 | 架构概览 | [observability-architecture-overview](./domain-8-observability/01-observability-architecture-overview.md) | 可观测性架构体系 |
+| 02 | 指标监控 | [monitoring-metrics-system](./domain-8-observability/02-monitoring-metrics-system.md) | Prometheus监控体系 |
+| 03 | 日志架构 | [logging-architecture](./domain-8-observability/03-logging-architecture.md) | 日志收集架构 |
+| 04 | 链路追踪 | [distributed-tracing](./domain-8-observability/04-distributed-tracing.md) | OpenTelemetry/Jaeger |
+| 05 | 告警管理 | [alerting-management](./domain-8-observability/05-alerting-management.md) | SLO驱动告警策略 |
+| 06 | Prometheus | [monitoring-metrics-prometheus](./domain-8-observability/06-monitoring-metrics-prometheus.md) | Prometheus监控体系 |
+| 07 | 自定义指标 | [custom-metrics-adapter](./domain-8-observability/07-custom-metrics-adapter.md) | Metrics API扩展 |
+| 10 | 可观测工具 | [observability-tools](./domain-8-observability/10-observability-tools.md) | 可观测性工具栈 |
 
 #### H2: 日志与审计
 
 | # | 简称 | 表格 | 关键内容 |
 |:---:|:---|:---|:---|
-| 95 | 日志审计 | [logging-auditing](./domain-8-observability/95-logging-auditing.md) | 日志收集架构 |
-| 96 | 事件审计 | [events-audit-logs](./domain-8-observability/96-events-audit-logs.md) | K8s事件与审计 |
-| 98 | 日志聚合 | [log-aggregation-tools](./domain-8-observability/98-log-aggregation-tools.md) | EFK/Loki方案 |
+| 08 | 日志审计 | [logging-auditing](./domain-8-observability/08-logging-auditing.md) | 日志收集架构 |
+| 09 | 事件审计 | [events-audit-logs](./domain-8-observability/09-events-audit-logs.md) | K8s事件与审计 |
+| 11 | 日志聚合 | [log-aggregation-tools](./domain-8-observability/11-log-aggregation-tools.md) | EFK/Loki方案 |
 
 #### H3: 诊断与分析
 
 | # | 简称 | 表格 | 关键内容 |
 |:---:|:---|:---|:---|
-| 99 | 排障概览 | [troubleshooting-overview](./domain-8-observability/99-troubleshooting-overview.md) | 生产级故障排查全攻略、版本特定问题、SOP流程 |
-| 100 | 排障工具 | [troubleshooting-tools](./domain-8-observability/100-troubleshooting-tools.md) | kubectl debug/netshoot |
-| 101 | 性能分析 | [performance-profiling-tools](./domain-8-observability/101-performance-profiling-tools.md) | pprof/perf |
-| 105 | 健康检查 | [cluster-health-check](./domain-8-observability/105-cluster-health-check.md) | 集群健康检查 |
+| 12 | 排障概览 | [troubleshooting-overview](./domain-8-observability/12-troubleshooting-overview.md) | 生产级故障排查全攻略、版本特定问题、SOP流程 |
+| 13 | 排障工具 | [troubleshooting-tools](./domain-8-observability/13-troubleshooting-tools.md) | kubectl debug/netshoot |
+| 14 | 性能分析 | [performance-profiling-tools](./domain-8-observability/14-performance-profiling-tools.md) | pprof/perf |
+| 15 | 健康检查 | [cluster-health-check](./domain-8-observability/15-cluster-health-check.md) | 集群健康检查 |
 
 #### H4: 质量保障
 
 | # | 简称 | 表格 | 关键内容 |
 |:---:|:---|:---|:---|
-| 106 | 混沌工程 | [chaos-engineering](./domain-8-observability/106-chaos-engineering.md) | Chaos Mesh/Litmus |
-| 107 | 扩展性能 | [scaling-performance](./domain-8-observability/107-scaling-performance.md) | 扩展性测试 |
+| 16 | 混沌工程 | [chaos-engineering](./domain-8-observability/16-chaos-engineering.md) | Chaos Mesh/Litmus |
+| 17 | 扩展性能 | [scaling-performance](./domain-8-observability/17-scaling-performance.md) | 扩展性测试 |
 
 ---
 
 ### 域I: 平台运维 (Platform Operations)
 
-> 13 篇 | 准入控制、CRD/Operator、备份恢复、多集群、容灾
+> 21 篇 | 运维体系、集群管理、监控告警、GitOps、自动化、成本优化、安全合规、灾备恢复
 
-#### I1: 控制平面扩展
-
-| # | 简称 | 表格 | 关键内容 |
-|:---:|:---|:---|:---|
-| 111 | 准入控制 | [admission-controllers](./domain-9-platform-ops/111-admission-controllers.md) | Webhook配置 |
-| 112 | CRD/Operator | [crd-operator-development](./domain-9-platform-ops/112-crd-operator-development.md) | Operator开发 |
-| 113 | API聚合 | [api-aggregation](./domain-9-platform-ops/113-api-aggregation.md) | API聚合层 |
-| 114 | Lease选举 | [lease-leader-election](./domain-9-platform-ops/114-lease-leader-election.md) | Leader选举机制 |
-| 115 | 客户端库 | [client-libraries](./domain-9-platform-ops/115-client-libraries.md) | client-go/SDK |
-| 116 | CLI工具 | [cli-enhancement-tools](./domain-9-platform-ops/116-cli-enhancement-tools.md) | k9s/kubectx |
-| 117 | 插件扩展 | [addons-extensions](./domain-9-platform-ops/117-addons-extensions.md) | 常用插件 |
-
-#### I2: 备份与容灾
+#### I1: 运维基础体系 (01-08)
 
 | # | 简称 | 表格 | 关键内容 |
 |:---:|:---|:---|:---|
-| 118 | 备份概览 | [backup-recovery-overview](./domain-9-platform-ops/118-backup-recovery-overview.md) | 备份策略规划 |
-| 119 | Velero | [backup-restore-velero](./domain-9-platform-ops/119-backup-restore-velero.md) | Velero完整配置 |
-| 120 | 容灾策略 | [disaster-recovery-strategy](./domain-9-platform-ops/120-disaster-recovery-strategy.md) | DR架构设计 |
+| 01 | 运维概览 | [platform-ops-overview](./domain-9-platform-ops/01-platform-ops-overview.md) | 平台运维职责、技术架构、成熟度模型 |
+| 02 | 集群管理 | [cluster-lifecycle-management](./domain-9-platform-ops/02-cluster-lifecycle-management.md) | 集群生命周期、创建配置、扩缩容策略 |
+| 03 | 监控告警 | [monitoring-alerting-system](./domain-9-platform-ops/03-monitoring-alerting-system.md) | Prometheus/Grafana、AlertManager、SLO/SLI |
+| 04 | GitOps配置 | [gitops-configuration-management](./domain-9-platform-ops/04-gitops-configuration-management.md) | ArgoCD/FluxCD、声明式配置、自动化同步 |
+| 05 | 自动化工具 | [automation-toolchain](./domain-9-platform-ops/05-automation-toolchain.md) | IaC、CI/CD、配置管理、故障自愈 |
+| 06 | 成本优化 | [cost-optimization-finops](./domain-9-platform-ops/06-cost-optimization-finops.md) | Kubecost、资源优化、Spot实例、FinOps实践 |
+| 07 | 安全合规 | [security-compliance](./domain-9-platform-ops/07-security-compliance.md) | 零信任安全、RBAC、网络策略、合规审计 |
+| 08 | 灾备连续 | [disaster-recovery-business-continuity](./domain-9-platform-ops/08-disaster-recovery-business-continuity.md) | 备份恢复、多活架构、应急响应、RTO/RPO |
 
-#### I3: 多集群管理
+#### I2: 控制平面扩展 (09-15)
 
 | # | 简称 | 表格 | 关键内容 |
 |:---:|:---|:---|:---|
-| 121 | 多集群 | [multi-cluster-management](./domain-9-platform-ops/121-multi-cluster-management.md) | 多集群架构 |
-| 122 | 联邦集群 | [federated-cluster](./domain-9-platform-ops/122-federated-cluster.md) | KubeFed |
-| 123 | 虚拟集群 | [virtual-clusters](./domain-9-platform-ops/123-virtual-clusters.md) | vCluster |
+| 09 | 准入控制 | [admission-controllers](./domain-9-platform-ops/09-admission-controllers.md) | Webhook配置、准入策略、验证变更 |
+| 10 | CRD/Operator | [crd-operator-development](./domain-9-platform-ops/10-crd-operator-development.md) | 自定义资源、Operator开发、控制器模式 |
+| 11 | API聚合 | [api-aggregation](./domain-9-platform-ops/11-api-aggregation.md) | API聚合层、扩展API Server |
+| 12 | Lease选举 | [lease-leader-election](./domain-9-platform-ops/12-lease-leader-election.md) | Leader选举机制、高可用保障 |
+| 13 | 客户端库 | [client-libraries](./domain-9-platform-ops/13-client-libraries.md) | client-go、SDK、编程接口 |
+| 14 | CLI工具 | [cli-enhancement-tools](./domain-9-platform-ops/14-cli-enhancement-tools.md) | k9s、kubectx、kubectl插件 |
+| 15 | 插件扩展 | [addons-extensions](./domain-9-platform-ops/15-addons-extensions.md) | 常用插件、扩展组件、生态工具 |
+
+#### I3: 备份与容灾 (16-18)
+
+| # | 简称 | 表格 | 关键内容 |
+|:---:|:---|:---|:---|
+| 16 | 备份概览 | [backup-recovery-overview](./domain-9-platform-ops/16-backup-recovery-overview.md) | 备份策略规划、恢复演练、最佳实践 |
+| 17 | Velero备份 | [backup-restore-velero](./domain-9-platform-ops/17-backup-restore-velero.md) | Velero完整配置、跨区域备份、恢复验证 |
+| 18 | 容灾策略 | [disaster-recovery-strategy](./domain-9-platform-ops/18-disaster-recovery-strategy.md) | DR架构设计、多活部署、应急响应 |
+
+#### I4: 多集群管理 (19-21)
+
+| # | 简称 | 表格 | 关键内容 |
+|:---:|:---|:---|:---|
+| 19 | 多集群 | [multi-cluster-management](./domain-9-platform-ops/19-multi-cluster-management.md) | 多集群架构、联邦管理、资源统筹 |
+| 20 | 联邦集群 | [federated-cluster](./domain-9-platform-ops/20-federated-cluster.md) | KubeFed、跨集群协调、统一管理 |
+| 21 | 虚拟集群 | [virtual-clusters](./domain-9-platform-ops/21-virtual-clusters.md) | vCluster、租户隔离、轻量级集群 |
 
 ---
 
@@ -609,7 +638,7 @@ Kusheet 是面向**生产环境**的 Kubernetes + AI Infrastructure 运维全域
 | **快速上手** | [05-kubectl](./tables/05-kubectl-commands-reference.md), [21-工作负载](./domain-4-workloads/21-workload-controllers-overview.md) | P0 |
 | **部署应用** | [21-工作负载](./domain-4-workloads/21-workload-controllers-overview.md), [22-Pod生命周期](./domain-4-workloads/22-pod-lifecycle-events.md), [126-Helm](./domain-10-extensions/126-helm-charts-management.md) | P0 |
 | **服务暴露** | [47-Service](./domain-5-networking/47-service-concepts-types.md), [63-Ingress](./domain-5-networking/63-ingress-fundamentals.md), [71-Gateway API](./domain-5-networking/71-gateway-api-overview.md) | P0 |
-| **配置管理** | [90-Secret管理](./domain-7-security/90-secret-management-tools.md), [84-RBAC](./domain-7-security/84-rbac-matrix-configuration.md) | P1 |
+| **配置管理** | [14-Secret管理](./domain-7-security/14-secret-management-tools.md), [08-RBAC矩阵](./domain-7-security/08-rbac-matrix-configuration.md) | P1 |
 | **日志调试** | [95-日志](./domain-8-observability/95-logging-auditing.md), [100-排障工具](./domain-8-observability/100-troubleshooting-tools.md), [157-Pod排障](./domain-12-troubleshooting/157-pod-comprehensive-troubleshooting.md) | P1 |
 | **CI/CD集成** | [124-CI/CD](./domain-10-extensions/124-cicd-pipelines.md), [125-ArgoCD](./domain-10-extensions/125-gitops-workflow-argocd.md), [128-镜像构建](./domain-10-extensions/128-image-build-tools.md) | P1 |
 | **Operator开发** | [112-CRD/Operator](./domain-9-platform-ops/112-crd-operator-development.md), [115-client-go](./domain-9-platform-ops/115-client-libraries.md), [13-控制器模式](./tables/13-controller-pattern-reconciliation.md) | P2 |
@@ -629,9 +658,9 @@ Kusheet 是面向**生产环境**的 Kubernetes + AI Infrastructure 运维全域
 | **故障排查** | [99-排障概览](./domain-8-observability/99-troubleshooting-overview.md), [100-排障工具](./domain-8-observability/100-troubleshooting-tools.md), [102-Pod Pending](./domain-12-troubleshooting/102-pod-pending-diagnosis.md), [103-Node NotReady](./domain-12-troubleshooting/103-node-notready-diagnosis.md) | P0 |
 | **网络运维** | [46-CNI排障](./domain-5-networking/46-cni-troubleshooting-optimization.md), [56-DNS排障](./domain-5-networking/56-coredns-troubleshooting-optimization.md), [61-网络排障](./domain-5-networking/61-network-troubleshooting.md) | P1 |
 | **存储运维** | [79-存储排障](./domain-6-storage/79-pv-pvc-troubleshooting.md), [163-PVC排障](./domain-12-troubleshooting/163-pvc-storage-troubleshooting.md), [80-存储备份](./domain-6-storage/80-storage-backup-disaster-recovery.md) | P1 |
-| **备份恢复** | [118-备份概览](./domain-9-platform-ops/118-backup-recovery-overview.md), [119-Velero](./domain-9-platform-ops/119-backup-restore-velero.md), [120-容灾策略](./domain-9-platform-ops/120-disaster-recovery-strategy.md) | P1 |
+| **备份恢复** | [16-备份概览](./domain-9-platform-ops/16-backup-recovery-overview.md), [17-Velero](./domain-9-platform-ops/17-backup-restore-velero.md), [18-容灾策略](./domain-9-platform-ops/18-disaster-recovery-strategy.md) | P1 |
 | **容量规划** | [33-容量规划](./domain-4-workloads/33-cluster-capacity-planning.md), [107-扩展性能](./domain-8-observability/107-scaling-performance.md) | P2 |
-| **安全运维** | [82-安全加固](./domain-7-security/82-security-hardening-production.md), [85-证书管理](./domain-7-security/85-certificate-management.md), [162-证书排障](./domain-12-troubleshooting/162-certificate-troubleshooting.md) | P2 |
+| **安全架构** | [01-认证授权](./domain-7-security/01-authentication-authorization-system.md), [02-网络安全](./domain-7-security/02-network-security-policies.md), [03-运行时安全](./domain-7-security/03-runtime-security-defense.md), [04-审计合规](./domain-7-security/04-audit-logging-compliance.md), [12-合规认证](./domain-7-security/12-compliance-certification.md), [07-安全合规](./domain-9-platform-ops/07-security-compliance.md) | P1 |
 
 ---
 
@@ -643,9 +672,9 @@ Kusheet 是面向**生产环境**的 Kubernetes + AI Infrastructure 运维全域
 |:---|:---|:---:|
 | **架构设计** | [01-K8s架构](./tables/01-kubernetes-architecture-overview.md), [02-核心组件](./tables/02-core-components-deep-dive.md), [11-设计原则](./tables/11-kubernetes-design-principles.md) | P0 |
 | **设计原理** | [12-声明式API](./tables/12-declarative-api-pattern.md), [13-控制器模式](./tables/13-controller-pattern-reconciliation.md), [20-CAP定理](./tables/20-cap-theorem-distributed-systems.md) | P0 |
-| **高可用设计** | [18-高可用模式](./tables/18-high-availability-patterns.md), [17-etcd共识](./tables/17-distributed-consensus-etcd.md), [120-容灾策略](./domain-9-platform-ops/120-disaster-recovery-strategy.md) | P0 |
+| **高可用设计** | [18-高可用模式](./tables/18-high-availability-patterns.md), [17-etcd共识](./tables/17-distributed-consensus-etcd.md), [18-容灾策略](./domain-9-platform-ops/18-disaster-recovery-strategy.md) | P0 |
 | **控制平面** | [35-etcd](./domain-3-control-plane/35-etcd-deep-dive.md), [36-API Server](./domain-3-control-plane/36-kube-apiserver-deep-dive.md), [37-KCM](./domain-3-control-plane/37-kube-controller-manager-deep-dive.md), [164-Scheduler](./domain-3-control-plane/164-kube-scheduler-deep-dive.md) | P0 |
-| **多集群架构** | [121-多集群](./domain-9-platform-ops/121-multi-cluster-management.md), [122-联邦集群](./domain-9-platform-ops/122-federated-cluster.md), [60-多集群网络](./domain-5-networking/60-multi-cluster-networking.md) | P1 |
+| **多集群架构** | [19-多集群](./domain-9-platform-ops/19-multi-cluster-management.md), [20-联邦集群](./domain-9-platform-ops/20-federated-cluster.md), [60-多集群网络](./domain-5-networking/60-multi-cluster-networking.md) | P1 |
 | **网络架构** | [41-网络架构](./domain-5-networking/41-network-architecture-overview.md), [43-CNI对比](./domain-5-networking/43-cni-plugins-comparison.md), [167-CNI详解](./domain-3-control-plane/167-cni-container-network-deep-dive.md) | P1 |
 | **存储架构** | [73-存储架构](./domain-6-storage/73-storage-architecture-overview.md), [166-CSI详解](./domain-3-control-plane/166-csi-container-storage-deep-dive.md) | P1 |
 | **运行时选型** | [165-CRI详解](./domain-3-control-plane/165-cri-container-runtime-deep-dive.md), [27-RuntimeClass](./domain-4-workloads/27-runtime-class-configuration.md) | P2 |
@@ -660,11 +689,11 @@ Kusheet 是面向**生产环境**的 Kubernetes + AI Infrastructure 运维全域
 
 | 场景 | 推荐文档 | 优先级 |
 |:---|:---|:---:|
-| **环境搭建** | [123-虚拟集群](./domain-9-platform-ops/123-virtual-clusters.md), [06-集群配置](./tables/06-cluster-configuration-parameters.md) | P0 |
+| **环境搭建** | [21-虚拟集群](./domain-9-platform-ops/21-virtual-clusters.md), [06-集群配置](./tables/06-cluster-configuration-parameters.md) | P0 |
 | **混沌工程** | [106-混沌工程](./domain-8-observability/106-chaos-engineering.md) | P0 |
 | **性能测试** | [101-性能分析](./domain-8-observability/101-performance-profiling-tools.md), [107-扩展性能](./domain-8-observability/107-scaling-performance.md), [62-网络调优](./domain-5-networking/62-network-performance-tuning.md) | P0 |
 | **CI/CD集成** | [124-CI/CD](./domain-10-extensions/124-cicd-pipelines.md), [128-镜像构建](./domain-10-extensions/128-image-build-tools.md) | P1 |
-| **安全测试** | [86-镜像扫描](./domain-7-security/86-image-security-scanning.md), [91-安全扫描](./domain-7-security/91-security-scanning-tools.md) | P1 |
+| **安全测试** | [10-镜像扫描](./domain-7-security/10-image-security-scanning.md), [15-安全扫描](./domain-7-security/15-security-scanning-tools.md) | P1 |
 | **可观测性** | [93-Prometheus](./domain-8-observability/93-monitoring-metrics-prometheus.md), [95-日志](./domain-8-observability/95-logging-auditing.md), [97-可观测工具](./domain-8-observability/97-observability-tools.md) | P2 |
 | **故障注入** | [106-混沌工程](./domain-8-observability/106-chaos-engineering.md), [99-排障概览](./domain-8-observability/99-troubleshooting-overview.md) | P2 |
 
@@ -679,9 +708,9 @@ Kusheet 是面向**生产环境**的 Kubernetes + AI Infrastructure 运维全域
 | **架构理解** | [01-K8s架构](./tables/01-kubernetes-architecture-overview.md), [11-设计原则](./tables/11-kubernetes-design-principles.md) | P0 |
 | **成本分析** | [153-成本优化](./domain-11-ai-infra/153-cost-optimization-overview.md), [154-Kubecost](./domain-11-ai-infra/154-cost-management-kubecost.md), [141-AI成本](./domain-11-ai-infra/141-ai-cost-analysis-finops.md) | P0 |
 | **AI能力** | [131-AI Infra](./domain-11-ai-infra/131-ai-infrastructure-overview.md), [144-LLM推理](./domain-11-ai-infra/144-llm-inference-serving.md), [150-LLM成本](./domain-11-ai-infra/150-llm-cost-monitoring.md) | P1 |
-| **多租户** | [08-多租户](./tables/08-multi-tenancy-architecture.md), [84-RBAC](./domain-7-security/84-rbac-matrix-configuration.md) | P1 |
-| **合规认证** | [88-合规认证](./domain-7-security/88-compliance-certification.md), [89-审计实践](./domain-7-security/89-compliance-audit-practices.md) | P1 |
-| **高可用** | [18-高可用模式](./tables/18-high-availability-patterns.md), [120-容灾策略](./domain-9-platform-ops/120-disaster-recovery-strategy.md) | P2 |
+| **多租户** | [08-多租户](./tables/08-multi-tenancy-architecture.md), [08-RBAC矩阵](./domain-7-security/08-rbac-matrix-configuration.md) | P1 |
+| **合规认证** | [12-合规认证](./domain-7-security/12-compliance-certification.md), [13-审计实践](./domain-7-security/13-compliance-audit-practices.md) | P1 |
+| **高可用** | [18-高可用模式](./tables/18-high-availability-patterns.md), [18-容灾策略](./domain-9-platform-ops/18-disaster-recovery-strategy.md) | P2 |
 | **边缘计算** | [09-边缘计算](./tables/09-edge-computing-kubeedge.md) | P2 |
 | **绿色计算** | [155-绿色计算](./domain-11-ai-infra/155-green-computing-sustainability.md) | P2 |
 
@@ -693,7 +722,7 @@ Kusheet 是面向**生产环境**的 Kubernetes + AI Infrastructure 运维全域
 
 | 场景 | 推荐文档 | 优先级 |
 |:---|:---|:---:|
-| **基础操作** | [05-kubectl](./tables/05-kubectl-commands-reference.md), [116-CLI工具](./domain-9-platform-ops/116-cli-enhancement-tools.md) | P0 |
+| **基础操作** | [05-kubectl](./tables/05-kubectl-commands-reference.md), [14-CLI工具](./domain-9-platform-ops/14-cli-enhancement-tools.md) | P0 |
 | **应用部署** | [126-Helm](./domain-10-extensions/126-helm-charts-management.md), [125-ArgoCD](./domain-10-extensions/125-gitops-workflow-argocd.md) | P0 |
 | **状态查看** | [22-Pod生命周期](./domain-4-workloads/22-pod-lifecycle-events.md), [105-健康检查](./domain-8-observability/105-cluster-health-check.md) | P1 |
 | **日志获取** | [95-日志](./domain-8-observability/95-logging-auditing.md), [98-日志聚合](./domain-8-observability/98-log-aggregation-tools.md) | P1 |
@@ -703,6 +732,26 @@ Kusheet 是面向**生产环境**的 Kubernetes + AI Infrastructure 运维全域
 ---
 
 ## 变更记录
+
+### 2026-02 平台运维体系完善
+
+**Domain-9平台运维文档体系重构完成**:
+- ✅ 新增核心运维体系文档(01-08): 运维概览、集群管理、监控告警、GitOps、自动化工具链、成本优化、安全合规、灾备连续性
+- ✅ 重构平台运维文档结构: 运维基础体系(01-08) + 控制平面扩展(09-15) + 备份容灾(16-18) + 多集群管理(19-21)
+- ✅ 重新编号所有平台运维文档: 111-123 → 01-21
+- ✅ 更新README中domain-9平台运维章节结构和链接
+- ✅ 同步更新各角色附录中的平台运维相关文档引用
+- ✅ 提供完整的Kubernetes生产环境平台运维实践指南
+
+### 2026-02 安全合规体系增强
+
+**Domain-7安全文档体系重构完成**:
+- ✅ 新增核心安全体系文档(01-04): 认证授权、网络安全、运行时安全、审计合规
+- ✅ 重构安全文档结构: 核心安全体系(01-04) + 安全实践工具(05-16)
+- ✅ 重新编号所有安全文档: 81-92 → 01-16
+- ✅ 更新README中domain-7安全合规章节结构和链接
+- ✅ 同步更新各角色附录中的安全相关文档引用
+- ✅ 提供完整的Kubernetes生产环境安全实践指南
 
 ### 2026-02 目录结构优化
 
